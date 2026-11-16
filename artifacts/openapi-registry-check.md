@@ -103,3 +103,19 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 | Рендер Sequence HTTP | **200** |
 | SVG | 45 374 байта, canvas 2096×2167 |
 | Содержимое SVG | **10 из 10** проверок |
+
+## 10. Справочник кодов ошибок
+
+Добавлен по замечанию: HTTP-коды были, машиночитаемых кодов ошибок не было.
+
+| Что сделано | Где |
+|---|---|
+| Схема `ErrorCode` с 10 значениями | `openapi-registry.yaml`, components.schemas |
+| `Error.code` ссылается на `ErrorCode` | там же |
+| Таблица «код → HTTP → когда → что делать» | `openapi-registry.md`, раздел «Коды ошибок» |
+
+Коды: `FORMAT_INVALID`, `MISSING_REQUIRED_COLUMNS`, `INVALID_QUERY_PARAM`,
+`UNAUTHENTICATED`, `FORBIDDEN`, `REGISTRY_NOT_FOUND`, `REGISTRY_LIMIT_EXCEEDED`,
+`REGISTRY_BLOCKED`, `IDEMPOTENCY_KEY_REUSED`, `FILE_TOO_LARGE`.
+
+Повторный прогон Spectral: код возврата **0**, ошибок **0**.
