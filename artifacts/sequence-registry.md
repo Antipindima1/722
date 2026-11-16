@@ -6,7 +6,8 @@
 
 ## Сценарий
 
-Загрузка файла реестра, асинхронная проверка, опрос статуса и разбор отклонённых строк.
+Загрузка файла, асинхронная проверка (включая проверку прошлых выплат), опрос статуса и
+разбор отклонённых строк. Отдельно показаны отказ хранилища и недоставка события.
 
 ```plantuml
 @startuml
@@ -16,6 +17,7 @@ actor "Бухгалтер" as acc
 participant "Веб-интерфейс" as web
 participant "API Gateway" as api
 participant "Сервис реестров" as reg
+participant "Сервис выплат" as pay
 database "БД реестров" as db
 participant "Хранилище файлов" as s3
 queue "Очередь событий" as mq
@@ -45,65 +47,87 @@ end
 == Асинхронная проверка ==
 mq -> reg : 17 RegistryUploaded {registry_id}
 reg -> s3 : 18 GET file (object_key)
-loop По 200 строк
-  reg -> db : 19 INSERT rows (status=NEW)
-  reg -> db : 20 UPDATE rows (status=VALIDATED / REJECTED, reject_reason)
+
+alt Файл недоступен в хранилище
+  reg -> db : 19 UPDATE registry (status=BLOCKED)
+  reg -> mq : 20 Kafka RegistryValidationFailed {registry_id, reason=FILE_UNAVAILABLE}
+else Файл получен
+  loop По 200 строк
+    reg -> db : 21 INSERT rows (status=NEW, inn_hash)
+    reg -> pay : 22 GET /payouts/exists {registryId, rowId}
+    pay --> reg : 23 200 OK {paid, paidAt}
+    alt paid = true
+      reg -> db : 24 UPDATE row (status=REJECTED, reject_reason=ALREADY_PAID)
+    end
+    reg -> db : 25 UPDATE rows (status=VALIDATED / REJECTED, reject_reason)
+  end
+  alt Доля отклонённых больше 10%
+    reg -> db : 26 UPDATE registry (status=BLOCKED)
+  else Ошибок в пределах порога
+    reg -> db : 27 UPDATE registry (status=CHECKED)
+  end
+  reg -> mq : 28 Kafka RegistryChecked {registry_id, status, rejected_count}
 end
-alt Доля отклонённых больше 10%
-  reg -> db : 21 UPDATE registry (status=BLOCKED)
-else Ошибок в пределах порога
-  reg -> db : 22 UPDATE registry (status=CHECKED)
+
+== Доставка событий ==
+alt Брокер недоступен
+  loop 3 попытки: 1 с, 5 с, 15 с
+    reg -> mq : 29 Повторная публикация события
+  end
+  reg -> db : 30 UPDATE outbox (status=DLQ, reason=BROKER_UNAVAILABLE)
 end
-reg -> mq : 23 Kafka RegistryChecked {registry_id, status, rejected_count}
 
 == Опрос статуса ==
-acc -> web : 24 Обновить экран
-web -> api : 25 GET /registries/{id} {If-None-Match: ETag}
-api -> reg : 26 GET /registries/{id}
-reg -> db : 27 SELECT registry (status, counts, updated_at)
+acc -> web : 31 Обновить экран
+web -> api : 32 GET /registries/{id} {If-None-Match: ETag}
+api -> reg : 33 GET /registries/{id}
+reg -> db : 34 SELECT registry (status, counts, updated_at)
 alt ETag не изменился
-  reg --> api : 28 304 Not Modified
+  reg --> api : 35 304 Not Modified
 else Состояние изменилось
-  reg --> api : 29 200 OK {status, row_count, rejected_count, ETag}
+  reg --> api : 36 200 OK {status, row_count, rejected_count, ETag}
 end
-api --> web : 30 Ответ
-web --> acc : 31 Статус и счётчики
+api --> web : 37 Ответ
+web --> acc : 38 Статус и счётчики
 
 == Разбор отклонённых строк ==
-acc -> web : 32 Открыть отклонённые строки
-web -> api : 33 GET /registries/{id}/rows {status=REJECTED, limit=50, offset=0}
-api -> reg : 34 GET /registries/{id}/rows
-reg -> db : 35 SELECT rows (reject_reason, amount, inn_masked)
-reg --> api : 36 200 OK {items[{rowId, rejectReason, rejectMessage}], total}
-api --> web : 37 Ответ
-web --> acc : 38 Список строк с причинами отказа
+acc -> web : 39 Открыть отклонённые строки
+web -> api : 40 GET /registries/{id}/rows {status=REJECTED, limit=50, offset=0}
+api -> reg : 41 GET /registries/{id}/rows
+reg -> db : 42 SELECT rows (reject_reason, amount, inn_masked)
+reg --> api : 43 200 OK {items[{rowId, rejectReason, rejectMessage}], total}
+api --> web : 44 Ответ
+web --> acc : 45 Список строк с причинами отказа
 
 @enduml
 ```
 
 ## Соответствие спецификации
 
-| Шаг диаграммы | Операция OpenAPI | Код |
+| Шаги | Операция OpenAPI | Код |
 |---|---|---|
 | 2, 3 | `POST /registries` | 202 |
 | 11–16 | `POST /registries` (ошибки) | 400, 409 |
-| 25–31 | `GET /registries/{registryId}` | 200, 304 |
-| 33–38 | `GET /registries/{registryId}/rows` | 200 |
+| 22, 23 | `GET /payouts/exists` | 200 |
+| 32–38 | `GET /registries/{registryId}` | 200, 304 |
+| 40–45 | `GET /registries/{registryId}/rows` | 200 |
 
 ## Соответствие правилам
 
 | Правило | Где на диаграмме |
 |---|---|
 | `CHK-01`, `CHK-02` (формат и обязательные колонки) | ветка «Формат или колонки неверны» |
-| `CHK-03…CHK-07` (ИНН, дубли, сумма, телефон, повтор) | шаги 19–20, `reject_reason` |
-| `AS-02` (лимиты реестра) | ветка «Превышен лимит реестра» |
-| `AS-13` (идемпотентность) | шаг 4, ключ идемпотентности в `INSERT` |
-| `AS-14` (блокировка при >10% ошибок) | шаг 21 |
-| `O-06`, `AS-15` (маскирование ПДн) | шаг 35, `inn_masked` |
-| `AS-17` (события и доставка) | шаги 7, 23, очередь событий |
+| `CHK-03…CHK-06` (ИНН, дубли, сумма, телефон) | шаги 21, 25, `reject_reason` |
+| **`CHK-07` (нет прошлой выплаты)** | **шаги 22–24: запрос в `Сервис выплат`, причина `ALREADY_PAID`** |
+| `AS-02` (лимиты) | ветка «Превышен лимит реестра» |
+| `AS-13` (идемпотентность) | шаг 4 |
+| `AS-14` (блокировка при >10% ошибок) | шаг 26 |
+| `O-06`, `AS-15` (маскирование ПДн) | шаг 42 |
+| **`AS-17` (ретраи и DLQ)** | **блок «Доставка событий»: 3 попытки 1/5/15 с, затем DLQ** |
+| Отказ хранилища | ветка «Файл недоступен» → `BLOCKED` + событие об ошибке |
 
 ## Что не показано
 
-- Выплаты по СБП — это Ф2, отдельный сценарий.
+- Выплаты по СБП — Ф2.
 - Получение чека ФНС — вне выбранных фич.
 - Повторная загрузка исправленного реестра — тот же сценарий с новым `Idempotency-Key`.
