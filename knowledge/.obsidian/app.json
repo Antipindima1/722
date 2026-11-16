@@ -1,0 +1,9 @@
+{
+  "alwaysUpdateLinks": true,
+  "newLinkFormat": "relative",
+  "useMarkdownLinks": false,
+  "showLineNumber": false,
+  "readableLineLength": true,
+  "attachmentFolderPath": "attachments",
+  "defaultViewMode": "preview"
+}
