@@ -54,8 +54,8 @@ alt Файл недоступен в хранилище
 else Файл получен
   loop По 200 строк
     reg -> db : 21 INSERT rows (status=NEW, inn_hash)
-    reg -> pay : 22 GET /payouts/exists {registryId, rowId}
-    pay --> reg : 23 200 OK {paid, paidAt}
+    reg -> pay : 22 POST /payouts/exists:batch {items[{registryId, rowId}]}
+    pay --> reg : 23 200 OK {results[{rowId, paid}]}
     alt paid = true
       reg -> db : 24 UPDATE row (status=REJECTED, reject_reason=ALREADY_PAID)
     end
@@ -74,7 +74,7 @@ alt Брокер недоступен
   loop 3 попытки: 1 с, 5 с, 15 с
     reg -> mq : 29 Повторная публикация события
   end
-  reg -> db : 30 UPDATE outbox (status=DLQ, reason=BROKER_UNAVAILABLE)
+  reg -> mq : 30 Публикация в DLQ {registry_id, reason=BROKER_UNAVAILABLE}
 end
 
 == Опрос статуса ==
@@ -108,7 +108,7 @@ web --> acc : 45 Список строк с причинами отказа
 |---|---|---|
 | 2, 3 | `POST /registries` | 202 |
 | 11–16 | `POST /registries` (ошибки) | 400, 409 |
-| 22, 23 | `GET /payouts/exists` | 200 |
+| 22, 23 | `POST /payouts/exists:batch` | 200 |
 | 32–38 | `GET /registries/{registryId}` | 200, 304 |
 | 40–45 | `GET /registries/{registryId}/rows` | 200 |
 
@@ -118,12 +118,12 @@ web --> acc : 45 Список строк с причинами отказа
 |---|---|
 | `CHK-01`, `CHK-02` (формат и обязательные колонки) | ветка «Формат или колонки неверны» |
 | `CHK-03…CHK-06` (ИНН, дубли, сумма, телефон) | шаги 21, 25, `reject_reason` |
-| **`CHK-07` (нет прошлой выплаты)** | **шаги 22–24: запрос в `Сервис выплат`, причина `ALREADY_PAID`** |
+| **`CHK-07` (нет прошлой выплаты)** | **шаги 22–24: пакетный запрос в `Сервис выплат` (до 500 строк), причина `ALREADY_PAID`** |
 | `AS-02` (лимиты) | ветка «Превышен лимит реестра» |
 | `AS-13` (идемпотентность) | шаг 4 |
 | `AS-14` (блокировка при >10% ошибок) | шаг 26 |
 | `O-06`, `AS-15` (маскирование ПДн) | шаг 42 |
-| **`AS-17` (ретраи и DLQ)** | **блок «Доставка событий»: 3 попытки 1/5/15 с, затем DLQ** |
+| **`AS-17` (ретраи и DLQ)** | **блок «Доставка событий»: 3 попытки 1/5/15 с, затем публикация в DLQ** |
 | Отказ хранилища | ветка «Файл недоступен» → `BLOCKED` + событие об ошибке |
 
 ## Что не показано
