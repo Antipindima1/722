@@ -1,0 +1,40 @@
+@startuml
+!include <C4/C4_Container>
+
+title Контейнеры «ВыплатыПро» (C4 L2)
+
+Person(accountant, "Бухгалтер", "Загружает реестры, разбирает ошибки, запускает выплаты")
+
+System_Boundary(s, "ВыплатыПро") {
+  Container(web, "Веб-интерфейс", "SPA", "Реестры, отчёты об ошибках, запуск выплат")
+  Container(api, "API-шлюз", "REST", "Единая точка входа, авторизация, маршрутизация")
+  Container(registry, "Сервис реестров", "Backend", "Приём файла, проверки CHK-01…CHK-07, статусы реестра и строк")
+  Container(payout, "Сервис выплат", "Backend", "Проверки CHK-08…CHK-12, отправка в СБП, идемпотентность, ретраи")
+  Container(fns, "Адаптер ФНС", "Backend", "Запрос статуса самозанятого в «Мой налог»")
+  Container(queue, "Очередь событий", "Kafka", "События реестра и выплат, DLQ")
+  ContainerDb(dbReg, "БД реестров", "PostgreSQL", "Реестры, строки, отчёты проверки")
+  ContainerDb(dbPay, "БД выплат", "PostgreSQL", "Выплаты, попытки, результаты СБП")
+  ContainerDb(storage, "Хранилище файлов", "S3", "Загруженные файлы реестров")
+}
+
+System_Ext(fnsExt, "ФНС «Мой налог»", "Статус самозанятого")
+System_Ext(sbp, "СБП", "Переводы по номеру телефона")
+System_Ext(bank, "Банк компании", "Списание средств со счёта")
+
+Rel(accountant, web, "Работает", "HTTPS")
+Rel(web, api, "Запросы", "JSON/HTTPS")
+Rel(api, registry, "Реестры и отчёты", "REST")
+Rel(api, payout, "Запуск выплат", "REST")
+Rel(registry, storage, "Сохраняет файл", "S3 API")
+Rel(registry, dbReg, "Читает и пишет", "SQL")
+Rel(registry, queue, "Публикует «реестр проверен»", "Kafka")
+Rel(payout, queue, "Читает события, пишет DLQ", "Kafka")
+Rel(payout, dbPay, "Читает и пишет", "SQL")
+Rel(payout, api, "Отчёт по результатам выплаты", "REST")
+Rel(api, web, "Отчёт бухгалтеру", "JSON/HTTPS")
+Rel(payout, fns, "Запрашивает статус")
+Rel(fns, fnsExt, "Проверка статуса", "HTTPS")
+Rel(payout, sbp, "Переводы", "HTTPS")
+Rel(payout, bank, "Списание средств", "HTTPS")
+
+@enduml
