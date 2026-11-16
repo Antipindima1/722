@@ -12,6 +12,8 @@ servers:
 tags:
   - name: registries
     description: Реестры выплат
+  - name: payouts
+    description: Внутренние операции сервиса выплат, используются при проверке реестра
 security:
   - bearerAuth: []
 paths:
@@ -174,6 +176,50 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /payouts/exists:
+    get:
+      tags: [payouts]
+      operationId: checkPayoutExists
+      summary: Проверить, создана ли уже выплата по строке реестра
+      description: |
+        Внутренняя операция сервиса выплат. Сервис реестров вызывает её при проверке строки:
+        если по паре «реестр + строка» выплата уже создана, строка отклоняется как повторная.
+        Доступ только для сервисных учётных данных, не для бухгалтера.
+      parameters:
+        - name: registryId
+          in: query
+          required: true
+          description: Идентификатор реестра
+          schema:
+            type: string
+            format: uuid
+        - name: rowId
+          in: query
+          required: true
+          description: Идентификатор строки реестра
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Результат проверки
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [paid]
+                properties:
+                  paid:
+                    type: boolean
+                    description: true, если выплата по строке уже создана
+                  paidAt:
+                    type: string
+                    format: date-time
+                    description: Когда была создана выплата
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     bearerAuth:
@@ -290,10 +336,9 @@ components:
           type: integer
           minimum: 0
         totalAmount:
-          type: number
-          format: decimal
-          minimum: 0
-          description: Сумма реестра в рублях
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: Сумма реестра в рублях, строка с двумя знаками после точки
         acceptedCount:
           type: integer
           minimum: 0
@@ -342,8 +387,9 @@ components:
           type: string
           description: ФИО с маскированием
         amount:
-          type: number
-          format: decimal
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: Сумма строки в рублях, строка с двумя знаками после точки
         purpose:
           type: string
         rejectReason:
