@@ -183,7 +183,8 @@ repository/
 - C4, уровень 2 (контейнеры) — `skills/c4-container-diagram/SKILL.md`;
 - синхронные интеграции, OpenAPI + Sequence — `skills/openapi-design/SKILL.md`, затем `skills/sequence-diagram/SKILL.md`;
 - асинхронные интеграции, AsyncAPI — `skills/asyncapi-design/SKILL.md`;
-- данные, ER + DDL PostgreSQL — `skills/erd-data-model/SKILL.md`.
+- данные, ER + DDL PostgreSQL — `skills/erd-data-model/SKILL.md`;
+- проверка готового результата, поиск ошибок и запрос на исправление — `skills/smotryashchiy/SKILL.md` («Смотрящий», роль критика).
 
 ## 10. Главный принцип
 
