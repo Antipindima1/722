@@ -135,3 +135,20 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 поэтому повтор безопасен; `Retry-After` задаёт паузу.
 
 Повторный прогон Spectral: код возврата **0**, ошибок **0**.
+
+## 12. Правки по второму ревью
+
+| Замечание | Что сделано | Проверка |
+|---|---|---|
+| S-01 внутренняя операция под пользовательской схемой | добавлена схема `serviceToken` (`apiKey`, заголовок `X-Service-Token`), на операции `POST /payouts/exists:batch` стоит `security: [serviceToken]` | Spectral 0 ошибок; схема в `components.securitySchemes` |
+| S-02 сущность `outbox` без источника | шаг 30 заменён на публикацию в DLQ-топик очереди; таблицы `outbox` в артефактах больше нет | в SVG нет `outbox`, есть `DLQ` |
+| S-03 поштучный вызов в цикле | `GET /payouts/exists` заменён на `POST /payouts/exists:batch` (до 500 строк за вызов) | в SVG есть `payouts/exists:batch`; в спеке `maxItems: 500` |
+
+Повторные прогоны:
+
+| Проверка | Результат |
+|---|---|
+| Spectral (код возврата) | **0** |
+| Spectral (ошибок) | **0** |
+| Рендер Sequence HTTP | **200** |
+| SVG | 45 537 байт |
