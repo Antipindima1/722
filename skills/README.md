@@ -28,16 +28,16 @@ tags:
 
 | Skill | Артефакт из SA-2378 | Когда применять | Чем проверяется |
 |---|---|---|---|
-| [[c4-container-diagram/SKILL\|c4-container-diagram]] | C4, уровень 2 (контейнеры) | Нужна архитектура контейнеров и связей между ними | Рендер в PlantUML C4 или Structurizr, аргументация решений |
-| [[openapi-design/SKILL\|openapi-design]] | OpenAPI + Sequence | Синхронные интеграции: REST-контракт | Spectral |
-| [[sequence-diagram/SKILL\|sequence-diagram]] | OpenAPI + Sequence | Взаимодействие сервисов во времени, включая ошибки и ретраи | Ревью против `BRD`, `API` |
-| [[asyncapi-design/SKILL\|asyncapi-design]] | AsyncAPI | Асинхронные события и каналы (Kafka) | AsyncAPI CLI validate |
-| [[erd-data-model/SKILL\|erd-data-model]] | ER + DDL PostgreSQL | Модель данных и физическая схема БД | DDL выполняется в DBeaver без ошибок |
-| [[smotryashchiy/SKILL\|Смотрящий]] | Проверка любого из артефактов | Нужно найти ошибки в готовом результате и обосновать их | Отчёт `artifacts/<артефакт>-review.md` + запрос на исправление |
+| [c4-container-diagram](c4-container-diagram/SKILL.md) | C4, уровень 2 (контейнеры) | Нужна архитектура контейнеров и связей между ними | Рендер в PlantUML C4 или Structurizr, аргументация решений |
+| [openapi-design](openapi-design/SKILL.md) | OpenAPI + Sequence | Синхронные интеграции: REST-контракт | Spectral |
+| [sequence-diagram](sequence-diagram/SKILL.md) | OpenAPI + Sequence | Взаимодействие сервисов во времени, включая ошибки и ретраи | Ревью против `BRD`, `API` |
+| [asyncapi-design](asyncapi-design/SKILL.md) | AsyncAPI | Асинхронные события и каналы (Kafka) | AsyncAPI CLI validate |
+| [erd-data-model](erd-data-model/SKILL.md) | ER + DDL PostgreSQL | Модель данных и физическая схема БД | DDL выполняется в DBeaver без ошибок |
+| [Смотрящий](smotryashchiy/SKILL.md) | Проверка любого из артефактов | Нужно найти ошибки в готовом результате и обосновать их | Отчёт `artifacts/<артефакт>-review.md` + запрос на исправление |
 
 ## Проверка результата
 
-Перед сдачей любой артефакт проходит через [[smotryashchiy/SKILL|Смотрящего]] — навык-критик.
+Перед сдачей любой артефакт проходит через [Смотрящего](smotryashchiy/SKILL.md) — навык-критик.
 Он не правит артефакт, а находит ошибки, аргументирует каждую ссылкой на требование и
 формирует готовый запрос на исправление. Правило жёсткое: замечание без обоснования
 («почему это ошибка» + источник) не выдаётся, а допущение не считается ошибкой.
