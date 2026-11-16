@@ -196,60 +196,86 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
         '404':
           $ref: '#/components/responses/NotFound'
-  /payouts/exists:
-    get:
+  /payouts/exists:batch:
+    post:
       tags: [payouts]
-      operationId: checkPayoutExists
-      summary: Проверить, создана ли уже выплата по строке реестра
+      operationId: checkPayoutsExistBatch
+      summary: Пакетная проверка, созданы ли уже выплаты по строкам реестра
       description: |
-        Внутренняя операция сервиса выплат. Сервис реестров вызывает её при проверке строки:
-        если по паре «реестр + строка» выплата уже создана, строка отклоняется как повторная.
-        Доступ только для сервисных учётных данных, не для бухгалтера.
-      parameters:
-        - name: registryId
-          in: query
-          required: true
-          description: Идентификатор реестра
-          schema:
-            type: string
-            format: uuid
-        - name: rowId
-          in: query
-          required: true
-          description: Идентификатор строки реестра
-          schema:
-            type: string
-            format: uuid
+        Внутренняя операция сервиса выплат. Сервис реестров передаёт пачку строк, чтобы не
+        делать поштучные вызовы на реестр до 5 000 строк. Доступ только для сервисных
+        учётных данных, не для бухгалтера.
+      security:
+        - serviceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  description: Пачка строк для проверки
+                  items:
+                    type: object
+                    required: [registryId, rowId]
+                    properties:
+                      registryId:
+                        type: string
+                        format: uuid
+                      rowId:
+                        type: string
+                        format: uuid
       responses:
         '200':
-          description: Результат проверки
+          description: Результат проверки по каждой строке
           content:
             application/json:
               schema:
                 type: object
-                required: [paid]
+                required: [results]
                 properties:
-                  paid:
-                    type: boolean
-                    description: true, если выплата по строке уже создана
-                  paidAt:
-                    type: string
-                    format: date-time
-                    description: Когда была создана выплата
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [rowId, paid]
+                      properties:
+                        rowId:
+                          type: string
+                          format: uuid
+                        paid:
+                          type: boolean
+                          description: true, если выплата по строке уже создана
+                        paidAt:
+                          type: string
+                          format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/ServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Токен сервис-сервис взаимодействия, выдаётся сервису реестров
   parameters:
     RegistryId:
       name: registryId
