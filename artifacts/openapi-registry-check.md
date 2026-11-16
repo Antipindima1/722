@@ -84,3 +84,22 @@ sed -n '/```plantuml/,/```/p' artifacts/sequence-registry.md | sed '1d;$d' > /tm
 curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
      --data-binary @/tmp/seq.puml -o artifacts/sequence-registry.svg
 ```
+
+## 9. Правки по замечаниям ревью
+
+| Замечание | Что сделано | Проверка |
+|---|---|---|
+| S-01 `CHK-07` не обеспечена данными | добавлена операция `GET /payouts/exists`; на диаграмме — шаги 22–24 с обращением к `Сервис выплат` и причиной `ALREADY_PAID` | Spectral 0 ошибок; в SVG найдены `GET /payouts/exists` и `ALREADY_PAID` |
+| S-02 нет ветки недоставки события | добавлен блок «Доставка событий»: 3 попытки 1/5/15 с, затем `DLQ` | в SVG найдены `DLQ` и `RegistryValidationFailed` |
+| S-03 `format: decimal` | суммы стали строками с `pattern: '^\\d+\\.\\d{2}$'` | Spectral 0 ошибок |
+| S-04 нет ветки «файл недоступен» | добавлена ветка: статус `BLOCKED` + событие `RegistryValidationFailed` | в SVG найдена ветка «Файл недоступен» |
+
+Повторные прогоны после правок:
+
+| Проверка | Результат |
+|---|---|
+| Spectral (код возврата) | **0** |
+| Spectral (ошибок) | **0** |
+| Рендер Sequence HTTP | **200** |
+| SVG | 45 374 байта, canvas 2096×2167 |
+| Содержимое SVG | **10 из 10** проверок |
