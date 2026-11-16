@@ -119,3 +119,19 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 `REGISTRY_BLOCKED`, `IDEMPOTENCY_KEY_REUSED`, `FILE_TOO_LARGE`.
 
 Повторный прогон Spectral: код возврата **0**, ошибок **0**.
+
+## 11. Серверные ошибки (5xx)
+
+Добавлено по замечанию: в спецификации были только клиентские коды 4xx.
+
+| Что сделано | Где |
+|---|---|
+| Ответы `500 ServerError` и `503 ServiceUnavailable` | прикреплены ко всем 6 операциям |
+| Заголовок `Retry-After` у `503` | `components.responses.ServiceUnavailable` |
+| Коды `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`, `UPSTREAM_TIMEOUT` | `ErrorCode` |
+| Правило повтора для 5xx | `openapi-registry.md`, раздел «Коды ошибок» |
+
+Смысл: 5xx не означает, что операция не выполнена. Загрузка идемпотентна по `Idempotency-Key`,
+поэтому повтор безопасен; `Retry-After` задаёт паузу.
+
+Повторный прогон Spectral: код возврата **0**, ошибок **0**.
