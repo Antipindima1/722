@@ -53,6 +53,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '403':
           $ref: '#/components/responses/Forbidden'
         '409':
@@ -87,6 +91,10 @@ paths:
                 $ref: '#/components/schemas/RegistryPage'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /registries/{registryId}:
     get:
       tags: [registries]
@@ -116,6 +124,10 @@ paths:
           description: Данные не изменились
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -151,6 +163,10 @@ paths:
                 $ref: '#/components/schemas/RowPage'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -174,6 +190,10 @@ paths:
                 $ref: '#/components/schemas/ValidationReport'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '404':
           $ref: '#/components/responses/NotFound'
   /payouts/exists:
@@ -218,6 +238,10 @@ paths:
                     description: Когда была создана выплата
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '403':
           $ref: '#/components/responses/Forbidden'
 components:
@@ -288,6 +312,24 @@ components:
             $ref: '#/components/schemas/Error'
     Conflict:
       description: Конфликт состояния реестра или ключа идемпотентности
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Внутренняя ошибка сервиса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Сервис или его зависимость временно недоступны; запрос можно повторить
+      headers:
+        Retry-After:
+          description: Через сколько секунд повторить запрос
+          schema:
+            type: integer
+            minimum: 1
       content:
         application/json:
           schema:
@@ -468,6 +510,9 @@ components:
         - REGISTRY_BLOCKED
         - IDEMPOTENCY_KEY_REUSED
         - FILE_TOO_LARGE
+        - INTERNAL_ERROR
+        - SERVICE_UNAVAILABLE
+        - UPSTREAM_TIMEOUT
     Error:
       type: object
       required: [code, message]
