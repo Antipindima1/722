@@ -454,13 +454,26 @@ components:
         generatedAt:
           type: string
           format: date-time
+    ErrorCode:
+      type: string
+      description: Машиночитаемый код ошибки
+      enum:
+        - FORMAT_INVALID
+        - MISSING_REQUIRED_COLUMNS
+        - INVALID_QUERY_PARAM
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - REGISTRY_NOT_FOUND
+        - REGISTRY_LIMIT_EXCEEDED
+        - REGISTRY_BLOCKED
+        - IDEMPOTENCY_KEY_REUSED
+        - FILE_TOO_LARGE
     Error:
       type: object
       required: [code, message]
       properties:
         code:
-          type: string
-          description: Машиночитаемый код ошибки
+          $ref: '#/components/schemas/ErrorCode'
         message:
           type: string
           description: Описание ошибки для человека
