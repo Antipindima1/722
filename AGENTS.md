@@ -85,6 +85,7 @@ Jira является источником требований и задач п
 - `knowledge/01-glossary.md` — глоссарий терминов.
 - `knowledge/02-business-rules.md` — бизнес-правила, проверки, ограничения, статусы и переходы.
 - `knowledge/03-assumptions.md` — допущения и решения, требующие подтверждения.
+- `knowledge/04-task-SA-2378.md` — постановка задачи, порядок работ и Definition of Done.
 - `knowledge/entities/` — заметки по сущностям (бронь, поездка, залог, платёж, кейс повреждения, автомобиль, клиент).
 
 При использовании базы знаний:
@@ -111,25 +112,40 @@ repository/
 ├── AGENTS.md
 ├── README.md
 │
-├── knowledge/
+├── knowledge/                     # база знаний, vault Obsidian
 │   ├── README.md
+│   ├── 00-index.md
 │   ├── 01-glossary.md
 │   ├── 02-business-rules.md
-│   └── 03-assumptions.md
+│   ├── 03-assumptions.md
+│   ├── 04-task-SA-2378.md
+│   ├── entities/
+│   └── .obsidian/
 │
-├── docs/
+├── skills/                        # навыки под назначенные артефакты
+│   ├── README.md
+│   ├── c4-container-diagram/
+│   ├── openapi-design/
+│   ├── sequence-diagram/
+│   ├── asyncapi-design/
+│   ├── erd-data-model/
+│   └── smotryashchiy/
 │
-├── src/
+├── artifacts/                     # создаётся при выполнении SA-2378
 │
-└── tests/
+├── docs/                          # планируется
+├── src/                           # планируется
+└── tests/                         # планируется
 ```
 
 Назначение основных директорий:
 
 - `knowledge/` — база знаний проекта в формате Obsidian.
-- `docs/` — проектная документация.
-- `src/` — исходный код приложения.
-- `tests/` — тесты.
+- `skills/` — навыки агента: по одному на назначенный артефакт плюс «Смотрящий» для проверки результата.
+- `artifacts/` — артефакты и отчёты проверки (`<артефакт>.md`, `<артефакт>-check.md`, `<артефакт>-review.md`).
+- `docs/` — проектная документация (планируется).
+- `src/` — исходный код приложения (планируется).
+- `tests/` — тесты (планируется).
 - `README.md` — общее описание репозитория.
 - `AGENTS.md` — правила поведения AI-агента.
 
