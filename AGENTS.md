@@ -179,15 +179,11 @@ repository/
 
 Перед выполнением профильной задачи открой `skills/README.md`, выбери подходящий навык и прочитай его `SKILL.md`. Не запускай все навыки автоматически. Для составных задач используй только необходимые skills последовательно. Корневые правила `AGENTS.md` имеют приоритет над отдельными skills.
 
-Основные соответствия:
-- анализ и декомпозиция требований — `skills/requirements-analysis/SKILL.md`;
-- Vision / BRD — `skills/vision-document/SKILL.md` / `skills/brd-document/SKILL.md`;
-- бизнес-правила и таблицы решений — `skills/business-rules-modeling/SKILL.md`;
-- BPMN / UML Use Case / Activity / Sequence / State Machine — соответствующие skills в `skills/`;
-- C4 L1/L2/L3/L4 — `c4-context-diagram`, `c4-container-diagram`, `c4-component-diagram`, `c4-code-diagram`;
-- HTTP API / event-driven API / ERD — `openapi-design`, `asyncapi-design`, `erd-data-model`;
-- выполнение Jira Story — `jira-story-delivery`;
-- сверка артефактов — `architecture-consistency-review`.
+Основные соответствия (состав навыков ограничен назначением ментора по SA-2378 — все четыре типа артефактов):
+- C4, уровень 2 (контейнеры) — `skills/c4-container-diagram/SKILL.md`;
+- синхронные интеграции, OpenAPI + Sequence — `skills/openapi-design/SKILL.md`, затем `skills/sequence-diagram/SKILL.md`;
+- асинхронные интеграции, AsyncAPI — `skills/asyncapi-design/SKILL.md`;
+- данные, ER + DDL PostgreSQL — `skills/erd-data-model/SKILL.md`.
 
 ## 10. Главный принцип
 
