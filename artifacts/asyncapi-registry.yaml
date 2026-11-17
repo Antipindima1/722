@@ -1,0 +1,216 @@
+asyncapi: 2.6.0
+id: urn:vyplatypro:registry-events
+defaultContentType: application/json
+info:
+  title: ВыплатыПро — события реестра выплат (Ф1)
+  version: 1.0.0
+  description: |
+    Асинхронные события сервиса реестров: реестр принят, проверен, проверка не удалась.
+    Ключ сообщения — идентификатор реестра, поэтому события одного реестра попадают в одну
+    партицию и обрабатываются по порядку. Недоставленные сообщения уходят в DLQ.
+  contact:
+    name: ВыплатыПро
+    url: https://vyplatypro.example
+servers:
+  production:
+    url: broker.vyplatypro.example:9092
+    protocol: kafka
+    description: Продуктивный брокер событий
+    bindings:
+      kafka:
+        schemaRegistryUrl: https://schema.vyplatypro.example
+tags:
+  - name: registry
+    description: События реестра выплат
+channels:
+  registry.uploaded:
+    description: |
+      Реестр принят и поставлен в очередь на проверку. Публикует сервис реестров,
+      читает он же — воркер проверки.
+    publish:
+      operationId: publishRegistryUploaded
+      summary: Публикация события о принятом реестре
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: registry_id
+      message:
+        $ref: '#/components/messages/RegistryUploaded'
+    subscribe:
+      operationId: consumeRegistryUploaded
+      summary: Чтение события воркером проверки
+      bindings:
+        kafka:
+          groupId:
+            type: string
+            enum: [registry-validation-worker]
+      message:
+        $ref: '#/components/messages/RegistryUploaded'
+  registry.checked:
+    description: |
+      Проверка реестра завершена: реестр проверен или заблокирован из-за доли ошибок.
+      Публикует сервис реестров, читают сервис выплат и сервис уведомлений.
+    publish:
+      operationId: publishRegistryChecked
+      summary: Публикация результата проверки
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: registry_id
+      message:
+        $ref: '#/components/messages/RegistryChecked'
+  registry.validation-failed:
+    description: |
+      Проверка не выполнена по технической причине: файл недоступен в хранилище или
+      исчерпаны повторные попытки. Публикует сервис реестров, читают сервис уведомлений
+      и поддержка.
+    publish:
+      operationId: publishRegistryValidationFailed
+      summary: Публикация события о неудачной проверке
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: registry_id
+      message:
+        $ref: '#/components/messages/RegistryValidationFailed'
+  registry.events.dlq:
+    description: |
+      Недоставленные события после исчерпания повторных попыток. Читается вручную
+      для разбора инцидента.
+    publish:
+      operationId: publishRegistryEventToDlq
+      summary: Публикация в очередь недоставленных сообщений
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: registry_id
+      message:
+        $ref: '#/components/messages/DlqEnvelope'
+components:
+  messages:
+    RegistryUploaded:
+      name: RegistryUploaded
+      messageId: RegistryUploaded
+      title: Реестр принят
+      summary: Реестр загружен и ожидает проверки
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/RegistryUploadedPayload'
+    RegistryChecked:
+      name: RegistryChecked
+      messageId: RegistryChecked
+      title: Реестр проверен
+      summary: Проверка завершена, известен результат и счётчики
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/RegistryCheckedPayload'
+    RegistryValidationFailed:
+      name: RegistryValidationFailed
+      messageId: RegistryValidationFailed
+      title: Проверка не выполнена
+      summary: Техническая причина, по которой проверка не состоялась
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/RegistryValidationFailedPayload'
+    DlqEnvelope:
+      name: DlqEnvelope
+      messageId: DlqEnvelope
+      title: Недоставленное событие
+      summary: Исходное событие плюс причина попадания в DLQ
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DlqEnvelopePayload'
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [eventId, eventType, occurredAt, registryId]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+          description: Идентификатор события для защиты от повторной обработки
+        eventType:
+          type: string
+          description: Тип события
+        occurredAt:
+          type: string
+          format: date-time
+          description: Момент возникновения события
+        registryId:
+          type: string
+          format: uuid
+          description: Идентификатор реестра, он же ключ партиционирования
+    RegistryUploadedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [status, rowCount]
+          properties:
+            status:
+              type: string
+              enum: [UPLOADED, VALIDATING]
+            rowCount:
+              type: integer
+              minimum: 1
+              description: Количество строк в реестре
+            objectKey:
+              type: string
+              description: Ключ файла в хранилище
+    RegistryCheckedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [status, rowCount, acceptedCount, rejectedCount, errorShare]
+          properties:
+            status:
+              type: string
+              enum: [CHECKED, BLOCKED]
+            rowCount:
+              type: integer
+              minimum: 1
+            acceptedCount:
+              type: integer
+              minimum: 0
+            rejectedCount:
+              type: integer
+              minimum: 0
+            errorShare:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              description: Доля отклонённых строк
+    RegistryValidationFailedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [reason]
+          properties:
+            reason:
+              type: string
+              enum: [FILE_UNAVAILABLE, VALIDATION_TIMEOUT, INTERNAL_ERROR]
+              description: Причина, по которой проверка не выполнена
+            attempts:
+              type: integer
+              minimum: 1
+              description: Сколько попыток выполнено
+    DlqEnvelopePayload:
+      type: object
+      required: [originalEvent, reason, failedAt]
+      properties:
+        originalEvent:
+          type: object
+          description: Исходное сообщение без изменений
+        reason:
+          type: string
+          description: Причина недоставки
+        failedAt:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+          minimum: 1
