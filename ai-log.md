@@ -177,6 +177,7 @@
 | `skills/c4-container-diagram/SKILL.md` | технология только при подтверждении, иначе допущение | E-08 |
 | `skills/smotryashchiy/SKILL.md` | проверка отчёта на артефакты экранирования | E-05 |
 | `skills/smotryashchiy/SKILL.md` | раздел «Что НЕ является замечанием» + 2 пункта чек-листа про источник замечания | E-09 |
+| `skills/asyncapi-design/SKILL.md` | `key` в message-binding, запрет дубля `messageId`, два валидатора | E-10, E-11 |
 
 ## Как проверяется, что ошибка ушла
 
