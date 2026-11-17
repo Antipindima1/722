@@ -1,6 +1,6 @@
 // ВыплатыПро: ER-диаграмма (dbdiagram.io / DBML)
-// Связи вынесены отдельными Ref-строками, чтобы не зависеть от нотации в колонке.
-// Один-к-одному — "-", один-ко-многим — "<", многие-к-одному — ">".
+// Связи вынесены отдельными Ref-строками. Один-к-одному — "-", один-ко-многим — "<".
+// Внешние ключи везде NOT NULL: dbdiagram не принимает nullable-relations.
 
 Table companies {
   id uuid [pk]
@@ -37,9 +37,8 @@ Table registries {
 Table payout_rows {
   id uuid [pk]
   registry_id uuid [not null]
-  contractor_id uuid [note: 'NULL, пока исполнитель не привязан после проверки']
   full_name text [not null]
-  inn char(12) [not null]
+  inn char(12) [not null, note: 'исполнитель определяется по ИНН при создании выплаты']
   phone text [not null]
   amount numeric(14,2) [not null]
   purpose text [not null]
@@ -52,7 +51,7 @@ Table payouts {
   id uuid [pk]
   registry_id uuid [not null]
   row_id uuid [not null, unique, note: 'одна выплата на строку, CHK-07']
-  contractor_id uuid [note: 'NULL, если исполнитель не привязан']
+  contractor_id uuid [not null, note: 'выплата создаётся только для подтверждённого самозанятого, CHK-08']
   amount numeric(14,2) [not null]
   status payout_status [not null]
   sbp_ref text
@@ -87,26 +86,23 @@ Table validation_reports {
 
 // --- связи ---
 
-// один-ко-многим: у компании много реестров
+// у компании много реестров
 Ref: companies.id < registries.company_id
 
-// один-ко-многим: у реестра много строк
+// у реестра много строк
 Ref: registries.id < payout_rows.registry_id
 
-// один-ко-многим, исполнитель может быть ещё не привязан (nullable)
-Ref: contractors.id < payout_rows.contractor_id
-
-// один-ко-многим: у реестра много выплат
+// у реестра много выплат
 Ref: registries.id < payouts.registry_id
 
-// один-к-одному: одна выплата на строку реестра
+// одна выплата на строку реестра
 Ref: payout_rows.id - payouts.row_id
 
-// один-ко-многим, исполнитель может быть не привязан (nullable)
+// у исполнителя много выплат
 Ref: contractors.id < payouts.contractor_id
 
-// один-к-одному: один чек на выплату
+// один чек на выплату
 Ref: payouts.id - receipts.payout_id
 
-// один-к-одному: один сохранённый отчёт на реестр
+// один сохранённый отчёт на реестр
 Ref: registries.id - validation_reports.registry_id
