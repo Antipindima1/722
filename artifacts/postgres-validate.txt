@@ -2,7 +2,7 @@ PGlite (PostgreSQL в WASM)
 Файл: ..\artifacts\schema-registry.sql
 
 DDL executed: OK
-tables: companies, contractors, payout_rows, payouts, receipts, registries
+tables: companies, contractors, payout_rows, payouts, processed_events, receipts, registries
 enums: payout_status, receipt_status, registry_status, reject_reason, row_status
 foreign keys: 7
   payout_rows.contractor_id -> contractors
@@ -12,6 +12,26 @@ foreign keys: 7
   payouts.contractor_id -> contractors
   receipts.payout_id -> payouts
   registries.company_id -> companies
+indexes: 19
+  companies_pkey
+  contractors_inn_key
+  contractors_pkey
+  payout_rows_inn_idx
+  payout_rows_pkey
+  payout_rows_registry_inn_validated_uq
+  payout_rows_registry_status_idx
+  payouts_pkey
+  payouts_registry_idx
+  payouts_row_id_key
+  payouts_status_idx
+  processed_events_pkey
+  receipts_payout_id_key
+  receipts_pkey
+  receipts_status_idx
+  registries_company_status_idx
+  registries_idempotency_key_key
+  registries_pkey
+  registries_updated_idx
 
 Ограничения (ожидается ошибка на каждое нарушение):
 CHECK OK: amount = 0 у строки -> new row for relation "payout_rows" violates check constraint "payout_rows_amount_check"
@@ -20,5 +40,7 @@ CHECK OK: REJECTED без причины -> new row for relation "payout_rows" v
 CHECK OK: attempts = 4 -> new row for relation "payouts" violates check constraint "payouts_attempts_check"
 CHECK OK: чек RECEIVED без даты -> new row for relation "receipts" violates check constraint "receipts_check"
 CHECK OK: реестр > 5000 строк -> new row for relation "registries" violates check constraint "registries_row_count_check"
+CHECK OK: дубль принятой строки с одним ИНН -> duplicate key value violates unique constraint "payout_rows_registry_inn_validated_uq"
+CHECK OK: повторная обработка того же eventId -> duplicate key value violates unique constraint "processed_events_pkey"
 
 Итог: DDL исполняется, ограничения срабатывают.
