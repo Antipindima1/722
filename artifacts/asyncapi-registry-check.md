@@ -61,3 +61,28 @@ node pnpm.mjs dlx @asyncapi/cli@2 validate artifacts/asyncapi-registry.yaml
 export PATH="<node-bin>:$PATH"
 node <pnpm.mjs> dlx @asyncapi/cli@2 validate artifacts/asyncapi-registry.yaml
 ```
+
+## 5. Правки по замечаниям внешнего валидатора
+
+Пришла ошибка из другого валидатора: `messageId must be unique` и четыре
+`Object includes not allowed fields`.
+
+| Ошибка | Причина | Исправление |
+|---|---|---|
+| `key` в binding операции (строки 34, 58, 73, 87) | в Kafka operation-binding допустимы только `groupId`, `clientId`, `bindingVersion`; `key` — это message-binding | `key` перенесён в `components.messages.*.bindings.kafka.key` |
+| `messageId must be unique` | одно сообщение используется и в `publish`, и в `subscribe` одного канала; строгий валидатор считает это дублем | `messageId` убран из всех сообщений |
+
+Повторный прогон AsyncAPI CLI: **0 ошибок**, 7 предупреждений (5 `messageId`, лицензия, email),
+1 info про версию. Предупреждение про `messageId` — обратная сторона компромисса: CLI его
+рекомендует, строгий валидатор считает дублем. Выбор зафиксирован в открытых вопросах.
+
+## 6. Правки по замечаниям ревью
+
+| Замечание | Что сделано |
+|---|---|
+| S-01 политика ретраев только в тексте | добавлен `x-retry-policy` на операцию чтения: 3 попытки, интервалы, DLQ, какие ошибки повторяем |
+| S-02 `originalEvent` без схемы | заменён на `oneOf` из трёх payload-схем |
+| S-03 лишний статус `UPLOADED` | в enum остался только `VALIDATING` с пояснением |
+| S-04 нет повторной проверки | добавлен канал `registry.revalidation-requested` и схема `RegistryRevalidationPayload` |
+
+Итог: каналов 5, ошибок 0.
