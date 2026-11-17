@@ -106,3 +106,21 @@
 4. Добавить канал повторной проверки или зафиксировать отказ от неё (S-04).
 
 **Вердикт: принято с замечаниями** — четыре `🟡`, блокеров нет.
+
+---
+
+## Повторная проверка после исправлений
+
+| Замечание | Статус | Чем подтверждается |
+|---|---|---|
+| S-01 политика ретраев только в тексте | закрыто | `x-retry-policy` на операции чтения: `maxAttempts: 3`, `backoffSeconds: [1,5,15]`, `dlqChannel`, списки повторяемых и неповторяемых ошибок |
+| S-02 `originalEvent` без схемы | закрыто | `oneOf` из `RegistryUploadedPayload`, `RegistryCheckedPayload`, `RegistryValidationFailedPayload` |
+| S-03 лишний статус `UPLOADED` | закрыто | в `RegistryUploadedPayload.status` остался только `VALIDATING` |
+| S-04 нет канала повторной проверки | закрыто | канал `registry.revalidation-requested` и схема `RegistryRevalidationPayload` |
+| Внешний валидатор: `key` в binding операции | закрыто | `key` перенесён в message-binding |
+| Внешний валидатор: дубль `messageId` | закрыто | `messageId` убран у всех сообщений |
+
+Перепроверено: AsyncAPI CLI — 0 ошибок, 7 предупреждений (5 `messageId`, лицензия, email);
+каналов 5 (`artifacts/asyncapi-registry-check.md`, §§5–6).
+
+**Вердикт повторной проверки: принято.**
