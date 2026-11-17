@@ -1,0 +1,554 @@
+openapi: 3.0.3
+info:
+  title: ВыплатыПро — Реестр выплат (Ф1)
+  version: 1.0.0
+  description: |
+    Загрузка реестра выплат, его проверка и отчёт об ошибках.
+    Пользователь — бухгалтер компании. Реестр проверяется асинхронно: загрузка
+    принимается сразу, результат проверки доступен опросом статуса.
+servers:
+  - url: https://api.vyplatypro.example/v1
+    description: Продуктивный контур
+tags:
+  - name: registries
+    description: Реестры выплат
+  - name: payouts
+    description: Внутренние операции сервиса выплат, используются при проверке реестра
+security:
+  - bearerAuth: []
+paths:
+  /registries:
+    post:
+      tags: [registries]
+      operationId: uploadRegistry
+      summary: Загрузить реестр выплат
+      description: |
+        Принимает файл реестра в формате CSV (UTF-8, разделитель «точка с запятой») или XLSX.
+        Обязательные колонки: ФИО, ИНН, Телефон, Сумма, Назначение. Реестр принимается
+        асинхронно: в ответе возвращается идентификатор и статус проверки.
+        Повторная загрузка с тем же Idempotency-Key и тем же файлом возвращает ранее созданный
+        реестр без повторной проверки.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл реестра, CSV или XLSX, не более 5000 строк
+      responses:
+        '202':
+          description: Файл принят, проверка выполняется
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          description: Файл превышает допустимый размер
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags: [registries]
+      operationId: listRegistries
+      summary: Список реестров компании
+      description: |
+        Постраничный список реестров компании с фильтром по статусу. Используется бухгалтером,
+        чтобы вернуться к ранее загруженным реестрам и увидеть, какие из них ещё проверяются.
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу реестра
+          schema:
+            $ref: '#/components/schemas/RegistryStatus'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница реестров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /registries/{registryId}:
+    get:
+      tags: [registries]
+      operationId: getRegistry
+      summary: Статус реестра
+      description: Возвращает статус проверки и счётчики строк. Поддерживает ETag.
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+        - name: If-None-Match
+          in: header
+          description: Предыдущий ETag; при совпадении возвращается 304
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Реестр
+          headers:
+            ETag:
+              description: Версия состояния реестра
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Registry'
+        '304':
+          description: Данные не изменились
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /registries/{registryId}/rows:
+    get:
+      tags: [registries]
+      operationId: listRegistryRows
+      summary: Строки реестра с результатом проверки
+      description: |
+        Постраничный список строк. Для отклонённых строк возвращается код и описание причины,
+        чтобы бухгалтер исправил только ошибочные строки.
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+        - name: status
+          in: query
+          description: Фильтр по результату проверки строки
+          schema:
+            $ref: '#/components/schemas/RowStatus'
+        - name: reason
+          in: query
+          description: Фильтр по коду причины отклонения
+          schema:
+            $ref: '#/components/schemas/RejectReason'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница строк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RowPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /registries/{registryId}/report:
+    get:
+      tags: [registries]
+      operationId: getRegistryReport
+      summary: Отчёт по проверке реестра
+      description: |
+        Сводка: сколько строк принято, сколько отклонено, доля ошибок и разбивка по причинам.
+        Если доля ошибок превышает порог, в отчёте указывается, что реестр заблокирован.
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+      responses:
+        '200':
+          description: Отчёт
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationReport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /payouts/exists:batch:
+    post:
+      tags: [payouts]
+      operationId: checkPayoutsExistBatch
+      summary: Пакетная проверка, созданы ли уже выплаты по строкам реестра
+      description: |
+        Внутренняя операция сервиса выплат. Сервис реестров передаёт пачку строк, чтобы не
+        делать поштучные вызовы на реестр до 5 000 строк. Доступ только для сервисных
+        учётных данных, не для бухгалтера.
+      security:
+        - serviceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  description: Пачка строк для проверки
+                  items:
+                    type: object
+                    required: [registryId, rowId]
+                    properties:
+                      registryId:
+                        type: string
+                        format: uuid
+                      rowId:
+                        type: string
+                        format: uuid
+      responses:
+        '200':
+          description: Результат проверки по каждой строке
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [rowId, paid]
+                      properties:
+                        rowId:
+                          type: string
+                          format: uuid
+                        paid:
+                          type: boolean
+                          description: true, если выплата по строке уже создана
+                        paidAt:
+                          type: string
+                          format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    serviceToken:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+      description: Токен сервис-сервис взаимодействия, выдаётся сервису реестров
+  parameters:
+    RegistryId:
+      name: registryId
+      in: path
+      required: true
+      description: Идентификатор реестра
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Ключ идемпотентности загрузки, уникальный для компании
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    Limit:
+      name: limit
+      in: query
+      description: Размер страницы
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      description: Смещение от начала списка
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  responses:
+    BadRequest:
+      description: Некорректный запрос или файл
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Требуется аутентификация
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Нет прав на операцию
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Реестр не найден или принадлежит другой компании
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Конфликт состояния реестра или ключа идемпотентности
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Внутренняя ошибка сервиса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Сервис или его зависимость временно недоступны; запрос можно повторить
+      headers:
+        Retry-After:
+          description: Через сколько секунд повторить запрос
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    RegistryStatus:
+      type: string
+      description: Статус реестра
+      enum: [UPLOADED, VALIDATING, CHECKED, BLOCKED, REJECTED, CANCELLED]
+    RowStatus:
+      type: string
+      description: Результат проверки строки
+      enum: [NEW, VALIDATED, REJECTED]
+    RejectReason:
+      type: string
+      description: Код причины отклонения строки
+      enum:
+        - INVALID_INN
+        - DUPLICATE_INN
+        - AMOUNT_OUT_OF_RANGE
+        - INVALID_PHONE
+        - ALREADY_PAID
+        - MISSING_REQUIRED_FIELD
+    RegistryAccepted:
+      type: object
+      required: [registryId, status, acceptedAt]
+      properties:
+        registryId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/RegistryStatus'
+        acceptedAt:
+          type: string
+          format: date-time
+    Registry:
+      type: object
+      required: [registryId, status, rowCount, totalAmount, acceptedCount, rejectedCount, updatedAt]
+      properties:
+        registryId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/RegistryStatus'
+        rowCount:
+          type: integer
+          minimum: 0
+        totalAmount:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: Сумма реестра в рублях, строка с двумя знаками после точки
+        acceptedCount:
+          type: integer
+          minimum: 0
+        rejectedCount:
+          type: integer
+          minimum: 0
+        errorShare:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Доля отклонённых строк
+        updatedAt:
+          type: string
+          format: date-time
+    RegistryPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Registry'
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+        offset:
+          type: integer
+          minimum: 0
+    RegistryRow:
+      type: object
+      required: [rowId, status, amount, innMasked]
+      properties:
+        rowId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/RowStatus'
+        innMasked:
+          type: string
+          description: ИНН с маскированием, полный доступен только в карточке строки
+        fullNameMasked:
+          type: string
+          description: ФИО с маскированием
+        amount:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: Сумма строки в рублях, строка с двумя знаками после точки
+        purpose:
+          type: string
+        rejectReason:
+          $ref: '#/components/schemas/RejectReason'
+        rejectMessage:
+          type: string
+          description: Понятное бухгалтеру объяснение причины
+    RowPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistryRow'
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+        offset:
+          type: integer
+          minimum: 0
+    ValidationReport:
+      type: object
+      required: [registryId, status, rowCount, acceptedCount, rejectedCount, errorShare, reasons, generatedAt]
+      properties:
+        registryId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/RegistryStatus'
+        rowCount:
+          type: integer
+          minimum: 0
+        acceptedCount:
+          type: integer
+          minimum: 0
+        rejectedCount:
+          type: integer
+          minimum: 0
+        errorShare:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        blocked:
+          type: boolean
+          description: Реестр заблокирован из-за превышения доли ошибок
+        reasons:
+          type: array
+          items:
+            type: object
+            required: [reason, count]
+            properties:
+              reason:
+                $ref: '#/components/schemas/RejectReason'
+              count:
+                type: integer
+                minimum: 0
+        generatedAt:
+          type: string
+          format: date-time
+    ErrorCode:
+      type: string
+      description: Машиночитаемый код ошибки
+      enum:
+        - FORMAT_INVALID
+        - MISSING_REQUIRED_COLUMNS
+        - INVALID_QUERY_PARAM
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - REGISTRY_NOT_FOUND
+        - REGISTRY_LIMIT_EXCEEDED
+        - REGISTRY_BLOCKED
+        - IDEMPOTENCY_KEY_REUSED
+        - FILE_TOO_LARGE
+        - INTERNAL_ERROR
+        - SERVICE_UNAVAILABLE
+        - UPSTREAM_TIMEOUT
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Описание ошибки для человека
+        details:
+          type: array
+          items:
+            type: string
