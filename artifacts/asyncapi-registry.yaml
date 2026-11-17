@@ -202,7 +202,8 @@ components:
           properties:
             status:
               type: string
-              enum: [CHECKED, BLOCKED, VALIDATION_FAILED]
+              enum: [CHECKED, BLOCKED]
+              description: Технический сбой публикуется отдельным событием RegistryValidationFailed
             rowCount:
               type: integer
               minimum: 1
