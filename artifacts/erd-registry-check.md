@@ -31,10 +31,10 @@ cd .tmp-pglite && node check.mjs ../artifacts/schema-registry.sql
 |---|---|
 | Движок | PGlite 0.5.16 (PostgreSQL, собранный в WASM) |
 | Исполнение DDL | **OK** |
-| Таблиц | 7: `companies`, `contractors`, `registries`, `payout_rows`, `payouts`, `receipts`, `processed_events` |
+| Таблиц | 8: `companies`, `contractors`, `registries`, `payout_rows`, `payouts`, `receipts`, `processed_events`, `validation_reports` |
 | Enum-типов | 5 |
-| Внешних ключей | 7 |
-| Индексов | 19 |
+| Внешних ключей | 8 |
+| Индексов | 20 |
 
 ### Проверка ограничений
 
@@ -81,3 +81,16 @@ cd .tmp-pglite && node check.mjs ../artifacts/schema-registry.sql
 | S-03 нет индекса по реестру у выплат | `payouts_registry_idx` | индекс есть в списке (19 индексов) |
 
 Повторный прогон: DDL OK, 7 таблиц, 19 индексов, 8 из 8 проверок ограничений.
+
+## 14. Правки по пробелам критериев приёмки
+
+Найдено при сверке DDL с критериями приёмки SCRUM-2189 и SCRUM-2190.
+
+| Пробел | Что сделано | Проверка |
+|---|---|---|
+| Лимит реестра по сумме отсутствовал | CHECK `total_amount <= 10 000 000` на `registries` | вставка реестра на 10 000 001 ₽ отбита |
+| Не проверялась контрольная сумма ИНН (`AS-09`) | функция `inn_is_valid(text)` и CHECK на `contractors.inn` и `payout_rows.inn` | `inn_is_valid('123456789047') = true`, `inn_is_valid('123456789012') = false`; вставка с неверным ИНН отбита |
+| Отчёт о проверке не хранился | таблица `validation_reports` с первичным ключом `registry_id` | отчёт вставлен; второй отчёт по тому же реестру отбит |
+
+Повторный прогон: DDL OK, 8 таблиц, 8 внешних ключей, 20 индексов, **11 из 11** проверок
+ограничений и 1 положительная проверка сохранения отчёта.
