@@ -1,7 +1,7 @@
 -- ВыплатыПро: самопроверка схемы после применения DDL
 -- Запускать в DBeaver целиком через Alt+X (Execute SQL Script).
 -- В конце откатывает транзакцию: тестовые данные в базе не остаются.
--- Ожидаемый итог: в колонке passed везде true.
+-- Ожидаемый итог: в колонке passed везде true, наши таблицы — 8, лишних — 0.
 
 BEGIN;
 
@@ -21,7 +21,7 @@ VALUES ('aaaaaaaa-0000-0000-0000-000000000004', 'aaaaaaaa-0000-0000-0000-0000000
         'Иванов И.И.', '123456789047', '79991234567', 1000.00, 'Курьерские услуги', 'VALIDATED', NULL);
 
 CREATE TEMP TABLE verify_results (
-    num      serial,
+    num        serial,
     check_name text,
     expected   text,
     passed     boolean
@@ -29,8 +29,8 @@ CREATE TEMP TABLE verify_results (
 
 DO $$
 DECLARE
-    v_registry uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
-    v_row      uuid := 'aaaaaaaa-0000-0000-0000-000000000004';
+    v_registry   uuid := 'aaaaaaaa-0000-0000-0000-000000000002';
+    v_row        uuid := 'aaaaaaaa-0000-0000-0000-000000000004';
     v_contractor uuid := 'aaaaaaaa-0000-0000-0000-000000000003';
 BEGIN
     BEGIN
@@ -129,10 +129,20 @@ BEGIN
     END;
 END $$;
 
--- 1. Структура: должно быть 8 таблиц
+-- 1. Наши таблицы: должно быть ровно 8
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
+  AND table_name IN ('companies', 'contractors', 'registries', 'validation_reports',
+                     'payout_rows', 'payouts', 'receipts', 'processed_events')
+ORDER BY 1;
+
+-- 1b. Лишние таблицы в схеме public (не наши). Ожидаемо: пусто
+SELECT table_name AS unexpected_table
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_name NOT IN ('companies', 'contractors', 'registries', 'validation_reports',
+                         'payout_rows', 'payouts', 'receipts', 'processed_events')
 ORDER BY 1;
 
 -- 2. Enum-типы: должно быть 5
@@ -142,10 +152,18 @@ JOIN pg_namespace n ON n.oid = t.typnamespace
 WHERE n.nspname = 'public' AND t.typtype = 'e'
 ORDER BY 1;
 
--- 3. Внешние ключи и индексы
+-- 3. Внешние ключи и индексы только по нашим таблицам
 SELECT
-    (SELECT count(*) FROM information_schema.table_constraints WHERE constraint_type = 'FOREIGN KEY') AS foreign_keys,
-    (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public') AS indexes;
+    (SELECT count(*)
+     FROM information_schema.table_constraints
+     WHERE constraint_type = 'FOREIGN KEY'
+       AND table_name IN ('companies', 'contractors', 'registries', 'validation_reports',
+                          'payout_rows', 'payouts', 'receipts', 'processed_events')) AS foreign_keys,
+    (SELECT count(DISTINCT indexname)
+     FROM pg_indexes
+     WHERE schemaname = 'public'
+       AND tablename IN ('companies', 'contractors', 'registries', 'validation_reports',
+                         'payout_rows', 'payouts', 'receipts', 'processed_events')) AS indexes;
 
 -- 4. Функция контрольной суммы ИНН: true / false
 SELECT inn_is_valid('123456789047') AS valid_inn_ok,
