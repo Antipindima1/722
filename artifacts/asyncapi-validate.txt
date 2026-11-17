@@ -1,0 +1,28 @@
+﻿node.exe : 
+строка:20 знак:8
++ $out = & node $pnpm dlx @asyncapi/cli@2 validate artifacts/asyncapi-r ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+File artifacts/asyncapi-registry.yaml and/or referenced documents have governance issues.
+
+Errors 
+artifacts/asyncapi-registry.yaml
+ 97:18  error  asyncapi2-message-messageId-uniqueness  "messageId" must be unique across all the messages.  components.messages.RegistryUploaded.messageId
+
+✖ 1 problem (1 error, 0 warnings, 0 infos, 0 hints)
+
+Warnings 
+artifacts/asyncapi-registry.yaml
+  4:6   warning  asyncapi-info-license             Info object should have "license" object.                     info
+ 11:11  warning  asyncapi-info-contact-properties  Contact object should have "name", "url" and "email" fields.  info.contact
+
+✖ 2 problems (0 errors, 2 warnings, 0 infos, 0 hints)
+
+Information 
+artifacts/asyncapi-registry.yaml
+ 1:11  information  asyncapi-latest-version  The latest version of AsyncAPi is not used. It is recommended update to the "3.1.0" version.  asyncapi
+
+✖ 1 problem (0 errors, 0 warnings, 1 info, 0 hints)
+
