@@ -4,12 +4,11 @@ PGlite (PostgreSQL в WASM)
 DDL executed: OK
 tables: companies, contractors, payout_rows, payouts, processed_events, receipts, registries, validation_reports
 enums: payout_status, receipt_status, registry_status, reject_reason, row_status
-foreign keys: 8
+foreign keys: 7
   payout_rows.registry_id -> registries
-  payout_rows.contractor_id -> contractors
+  payouts.registry_id -> registries
   payouts.row_id -> payout_rows
   payouts.contractor_id -> contractors
-  payouts.registry_id -> registries
   receipts.payout_id -> payouts
   registries.company_id -> companies
   validation_reports.registry_id -> registries
