@@ -25,7 +25,7 @@ Table contractors {
 }
 
 Table validation_reports {
-  registry_id uuid [pk, ref: > registries.id]
+  registry_id uuid [pk, ref: - registries.id]
   row_count integer [not null]
   accepted_count integer [not null]
   rejected_count integer [not null]
@@ -67,7 +67,7 @@ Table payout_rows {
 Table payouts {
   id uuid [pk]
   registry_id uuid [not null, ref: > registries.id]
-  row_id uuid [not null, unique, ref: > payout_rows.id]
+  row_id uuid [not null, unique, ref: - payout_rows.id]
   contractor_id uuid [ref: > contractors.id]
   amount numeric(14,2) [not null]
   status payout_status [not null]
@@ -85,7 +85,7 @@ Table processed_events {
 
 Table receipts {
   id uuid [pk]
-  payout_id uuid [not null, unique, ref: > payouts.id]
+  payout_id uuid [not null, unique, ref: - payouts.id]
   status receipt_status [not null]
   received_at timestamptz
   created_at timestamptz [not null]
