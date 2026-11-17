@@ -5,6 +5,14 @@
 - **Проверка:** исполнение DDL на PGlite (WASM PostgreSQL 15+)
 - **Дата:** 2026-11-17
 
+## Файлы
+
+- `artifacts/erd-registry.dbml` — модель для dbdiagram.io и RunSQL.
+- `artifacts/erd-registry.puml` — исходник ER-диаграммы (PlantUML).
+- `artifacts/erd-registry.svg` — отрендеренная диаграмма для чтения и ревью.
+- `artifacts/schema-registry.sql` — DDL PostgreSQL.
+- `artifacts/schema-online.sql` — вариант без enum и функций для онлайн-площадок.
+
 ## Модель (DBML)
 
 ```dbml
