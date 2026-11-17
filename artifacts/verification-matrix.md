@@ -7,7 +7,7 @@
 | System design | C4, уровень 2 (контейнеры) | рендер в PlantUML C4, аргументация решений | Kroki `POST /plantuml/svg` | HTTP 200, диаграмма отрисована, 9 контейнеров, 3 внешние системы, 15 из 15 связей с протоколами | `artifacts/c4-container.svg`, `artifacts/c4-container-check.md` |
 | Интеграции, синхронные | OpenAPI + Sequence с ошибками и ретраями | Spectral | Spectral 6.17.1, ruleset `spectral:oas` | код возврата 0, ошибок 0, предупреждений 0 | `artifacts/spectral-registry.json`, `artifacts/openapi-registry-check.md` |
 | Интеграции, асинхронные | AsyncAPI | AsyncAPI CLI validate | `@asyncapi/cli` validate | ошибок 0; 7 предупреждений (лицензия, email, `messageId`), разобраны в отчёте | `artifacts/asyncapi-validate.txt`, `artifacts/asyncapi-registry-check.md` |
-| Данные | ER + DDL PostgreSQL | **DDL выполняется в DBeaver без ошибок** | DBeaver + PostgreSQL | ⏳ ожидает прогона в DBeaver | заполняется после прогона |
+| Данные | ER + DDL PostgreSQL | **DDL выполняется в DBeaver без ошибок** | DBeaver + PostgreSQL (Neon) | ✅ скрипт выполнен без ошибок; схема проверена самопроверкой schema-verify.sql | rtifacts/schema-verify.sql |
 
 ## Что уже проверено по данным
 
@@ -39,3 +39,13 @@ where table_schema = 'public' order by 1;
 5. Зафиксировать результат: «Script executed» без ошибок + скриншот или список таблиц.
 
 После прогона в таблицу выше вписывается результат и ссылка на отчёт.
+
+## Самопроверка схемы
+
+Файл rtifacts/schema-verify.sql запускается в DBeaver через Alt+X и проверяет:
+
+- структуру: 8 таблиц, 5 enum-типов, 7 внешних ключей, 20 индексов;
+- функцию контрольной суммы ИНН (валидный и невалидный);
+- 11 ограничений негативными вставками, результат в таблице erify_results (колонка passed).
+
+Скрипт выполняется в транзакции и заканчивается ROLLBACK — тестовые данные в базе не остаются.
