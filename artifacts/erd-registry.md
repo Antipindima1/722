@@ -67,6 +67,12 @@ Table payouts {
   updated_at timestamptz [not null]
 }
 
+Table processed_events {
+  event_id uuid [pk]
+  consumer text [not null]
+  processed_at timestamptz [not null]
+}
+
 Table receipts {
   id uuid [pk]
   payout_id uuid [not null, unique, ref: > payouts.id]
@@ -89,6 +95,9 @@ Table receipts {
 | `receipts.status = RECEIVED` требует `received_at` | чек не может быть получен без даты | `O-05`, `AS-07` |
 | `payout_rows.inn` хранится как в файле, без FK на `contractors.inn` | в реестре бывают неверные и неизвестные ИНН; связь с исполнителем появляется после проверки | `CHK-03`, `CHK-08` |
 | Пять enum-типов вместо текстовых статусов | статусы ограничены на уровне БД | `02-business-rules.md` §4 |
+| Таблица `processed_events` | `eventId` из AsyncAPI должен где-то храниться, иначе защита от повторной обработки не работает | `AS-13` |
+| Частичный уникальный индекс `(registry_id, inn) WHERE status='VALIDATED'` | `O-08` запрещает дубли ИНН в реестре; на уровне БД это возможно только для принятых строк | `O-08` |
+| Индекс `payouts(registry_id)` | отчёт по результатам выплаты читает выплаты по реестру | `SCRUM-2192` |
 
 ## Трассировка
 
@@ -105,5 +114,4 @@ Table receipts {
 
 - **Чеки и возвраты** описаны заделом под Ф2; в Ф1 таблица `receipts` не заполняется.
 - **История статусов** не хранится отдельной таблицей: в требованиях Ф1 аудит не заявлен.
-- **Идемпотентность входящих событий** (проверка `eventId` из AsyncAPI) в модели не хранится —
-  вынесено в замечание ревью.
+- **Идемпотентность входящих событий** обеспечена таблицей `processed_events` (`AS-13`).
