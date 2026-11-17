@@ -31,9 +31,10 @@ cd .tmp-pglite && node check.mjs ../artifacts/schema-registry.sql
 |---|---|
 | Движок | PGlite 0.5.16 (PostgreSQL, собранный в WASM) |
 | Исполнение DDL | **OK** |
-| Таблиц | 6: `companies`, `contractors`, `registries`, `payout_rows`, `payouts`, `receipts` |
+| Таблиц | 7: `companies`, `contractors`, `registries`, `payout_rows`, `payouts`, `receipts`, `processed_events` |
 | Enum-типов | 5 |
 | Внешних ключей | 7 |
+| Индексов | 19 |
 
 ### Проверка ограничений
 
@@ -47,6 +48,8 @@ cd .tmp-pglite && node check.mjs ../artifacts/schema-registry.sql
 | `attempts = 4` | CHECK `payouts_attempts_check` |
 | чек `RECEIVED` без даты | CHECK `receipts_check` |
 | реестр 5 001 строка | CHECK `registries_row_count_check` |
+| дубль принятой строки с одним ИНН | UNIQUE `payout_rows_registry_inn_validated_uq` |
+| повторная обработка того же `eventId` | UNIQUE `processed_events_pkey` |
 
 Полный вывод: `artifacts/postgres-validate.txt`.
 
@@ -68,3 +71,13 @@ psql -f artifacts/schema-registry.sql
 # или автоматически, как в этой проверке:
 cd .tmp-pglite && node check.mjs ../artifacts/schema-registry.sql
 ```
+
+## 5. Правки по замечаниям ревью
+
+| Замечание | Что сделано | Проверка |
+|---|---|---|
+| S-01 нет места для `eventId` | таблица `processed_events (event_id pk, consumer, processed_at)` | повторная вставка того же `eventId` отбита первичным ключом |
+| S-02 дубли ИНН не отбиваются | частичный уникальный индекс `payout_rows_registry_inn_validated_uq` | вставка второго `VALIDATED` с тем же ИНН отбита |
+| S-03 нет индекса по реестру у выплат | `payouts_registry_idx` | индекс есть в списке (19 индексов) |
+
+Повторный прогон: DDL OK, 7 таблиц, 19 индексов, 8 из 8 проверок ограничений.
