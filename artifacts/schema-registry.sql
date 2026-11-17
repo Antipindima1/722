@@ -29,6 +29,32 @@ CREATE TYPE payout_status AS ENUM ('CREATED', 'SENT', 'EXECUTED', 'DECLINED');
 
 CREATE TYPE receipt_status AS ENUM ('PENDING', 'RECEIVED', 'MISSING', 'CANCELLED');
 
+-- Контрольная сумма ИНН из 12 цифр (AS-09)
+CREATE OR REPLACE FUNCTION inn_is_valid(inn text) RETURNS boolean
+LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+    d int[];
+    w11 int[] := ARRAY[7,2,4,10,3,5,9,4,6,8];
+    w12 int[] := ARRAY[3,7,2,4,10,3,5,9,4,6,8];
+    i int;
+    s11 int := 0;
+    s12 int := 0;
+BEGIN
+    IF inn !~ '^[0-9]{12}$' THEN
+        RETURN false;
+    END IF;
+    FOR i IN 1..12 LOOP
+        d[i] := substr(inn, i, 1)::int;
+    END LOOP;
+    FOR i IN 1..10 LOOP
+        s11 := s11 + d[i] * w11[i];
+        s12 := s12 + d[i] * w12[i];
+    END LOOP;
+    s12 := s12 + d[11] * w12[11];
+    RETURN (s11 % 11) % 10 = d[11] AND (s12 % 11) % 10 = d[12];
+END;
+$$;
+
 -- Компания-заказчик: владелец реестров и плательщик
 CREATE TABLE companies (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,7 +65,8 @@ CREATE TABLE companies (
 -- Исполнитель-самозанятый
 CREATE TABLE contractors (
     id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-    inn                  char(12) NOT NULL UNIQUE CHECK (inn ~ '^[0-9]{12}$'),
+    inn                  char(12) NOT NULL UNIQUE
+                                  CHECK (inn::text ~ '^[0-9]{12}$' AND inn_is_valid(inn::text)),
     full_name            text     NOT NULL CHECK (length(btrim(full_name)) > 0),
     phone                text     NOT NULL CHECK (phone ~ '^7[0-9]{10}$'),
     self_employed_status text     NOT NULL DEFAULT 'UNKNOWN'
@@ -56,7 +83,8 @@ CREATE TABLE registries (
     file_name       text            NOT NULL,
     object_key      text            NOT NULL,
     row_count       integer         NOT NULL DEFAULT 0 CHECK (row_count >= 0 AND row_count <= 5000),
-    total_amount    numeric(14, 2)  NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
+    total_amount    numeric(14, 2)  NOT NULL DEFAULT 0
+                                  CHECK (total_amount >= 0 AND total_amount <= 10000000),
     accepted_count  integer         NOT NULL DEFAULT 0 CHECK (accepted_count >= 0),
     rejected_count  integer         NOT NULL DEFAULT 0 CHECK (rejected_count >= 0),
     error_share     numeric(5, 4)   CHECK (error_share >= 0 AND error_share <= 1),
@@ -69,13 +97,28 @@ CREATE TABLE registries (
 CREATE INDEX registries_company_status_idx ON registries (company_id, status);
 CREATE INDEX registries_updated_idx ON registries (updated_at DESC);
 
+
+-- Отчёт о проверке реестра: сохраняется вместе с реестром (SCRUM-2190)
+CREATE TABLE validation_reports (
+    registry_id   uuid PRIMARY KEY REFERENCES registries (id) ON DELETE CASCADE,
+    row_count     integer        NOT NULL CHECK (row_count >= 0),
+    accepted_count integer       NOT NULL CHECK (accepted_count >= 0),
+    rejected_count integer       NOT NULL CHECK (rejected_count >= 0),
+    error_share   numeric(5, 4)  NOT NULL CHECK (error_share >= 0 AND error_share <= 1),
+    reasons       jsonb          NOT NULL DEFAULT '{}'::jsonb,
+    generated_at  timestamptz    NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE validation_reports IS 'Сохранённый отчёт о проверке реестра, SCRUM-2190';
+
 -- Строка реестра: одна выплата одному исполнителю
 CREATE TABLE payout_rows (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     registry_id   uuid          NOT NULL REFERENCES registries (id) ON DELETE CASCADE,
     contractor_id uuid          REFERENCES contractors (id) ON DELETE SET NULL,
     full_name     text          NOT NULL CHECK (length(btrim(full_name)) > 0),
-    inn           char(12)      NOT NULL CHECK (inn ~ '^[0-9]{12}$'),
+    inn           char(12)      NOT NULL
+                                  CHECK (inn::text ~ '^[0-9]{12}$' AND inn_is_valid(inn::text)),
     phone         text          NOT NULL CHECK (phone ~ '^7[0-9]{10}$'),
     amount        numeric(14, 2) NOT NULL CHECK (amount > 0 AND amount <= 1000000),
     purpose       text          NOT NULL CHECK (length(btrim(purpose)) > 0),
