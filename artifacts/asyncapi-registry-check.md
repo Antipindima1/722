@@ -86,3 +86,11 @@ node <pnpm.mjs> dlx @asyncapi/cli@2 validate artifacts/asyncapi-registry.yaml
 | S-04 нет повторной проверки | добавлен канал `registry.revalidation-requested` и схема `RegistryRevalidationPayload` |
 
 Итог: каналов 5, ошибок 0.
+
+## 7. Согласованность статусов
+
+Статус `VALIDATION_FAILED` добавлен в `RegistryCheckedPayload` и в базу знаний (`AS-19`),
+чтобы технический сбой не смешивался с блокировкой по данным. Канал
+`registry.revalidation-requested` теперь имеет шаг в Sequence Ф1 (блок «Повторная проверка»).
+
+AsyncAPI CLI: 0 ошибок, 7 предупреждений (5 `messageId`, лицензия, email).
