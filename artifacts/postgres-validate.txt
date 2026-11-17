@@ -1,0 +1,24 @@
+PGlite (PostgreSQL в WASM)
+Файл: ..\artifacts\schema-registry.sql
+
+DDL executed: OK
+tables: companies, contractors, payout_rows, payouts, receipts, registries
+enums: payout_status, receipt_status, registry_status, reject_reason, row_status
+foreign keys: 7
+  payout_rows.contractor_id -> contractors
+  payout_rows.registry_id -> registries
+  payouts.registry_id -> registries
+  payouts.row_id -> payout_rows
+  payouts.contractor_id -> contractors
+  receipts.payout_id -> payouts
+  registries.company_id -> companies
+
+Ограничения (ожидается ошибка на каждое нарушение):
+CHECK OK: amount = 0 у строки -> new row for relation "payout_rows" violates check constraint "payout_rows_amount_check"
+CHECK OK: повтор idempotency_key -> duplicate key value violates unique constraint "registries_idempotency_key_key"
+CHECK OK: REJECTED без причины -> new row for relation "payout_rows" violates check constraint "payout_rows_check"
+CHECK OK: attempts = 4 -> new row for relation "payouts" violates check constraint "payouts_attempts_check"
+CHECK OK: чек RECEIVED без даты -> new row for relation "receipts" violates check constraint "receipts_check"
+CHECK OK: реестр > 5000 строк -> new row for relation "registries" violates check constraint "registries_row_count_check"
+
+Итог: DDL исполняется, ограничения срабатывают.
