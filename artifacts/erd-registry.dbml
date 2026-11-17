@@ -1,0 +1,134 @@
+// ВыплатыПро: ER-диаграмма (dbdiagram.io / DBML)
+// Связи вынесены отдельными Ref-строками, внешние ключи NOT NULL.
+// Enum-типы объявлены явно: без объявления рендерер dbdiagram может падать.
+
+Enum registry_status {
+  UPLOADED
+  VALIDATING
+  CHECKED
+  BLOCKED
+  VALIDATION_FAILED
+  REJECTED
+  CANCELLED
+}
+
+Enum row_status {
+  NEW
+  VALIDATED
+  REJECTED
+}
+
+Enum reject_reason {
+  INVALID_INN
+  DUPLICATE_INN
+  AMOUNT_OUT_OF_RANGE
+  INVALID_PHONE
+  ALREADY_PAID
+  MISSING_REQUIRED_FIELD
+}
+
+Enum payout_status {
+  CREATED
+  SENT
+  EXECUTED
+  DECLINED
+}
+
+Enum receipt_status {
+  PENDING
+  RECEIVED
+  MISSING
+  CANCELLED
+}
+
+Table companies {
+  id uuid [pk]
+  name text [not null]
+  created_at timestamptz [not null]
+}
+
+Table contractors {
+  id uuid [pk]
+  inn varchar(12) [not null, unique, note: 'контрольная сумма проверяется функцией inn_is_valid']
+  full_name text [not null]
+  phone text [not null]
+  self_employed_status text [not null, note: 'ACTIVE / LOST / UNKNOWN']
+  status_checked_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table registries {
+  id uuid [pk]
+  company_id uuid [not null]
+  status registry_status [not null]
+  file_name text [not null]
+  object_key text [not null]
+  row_count integer [not null, note: 'не более 5000, AS-02']
+  total_amount numeric [not null, note: 'не более 10 000 000, AS-02']
+  accepted_count integer [not null]
+  rejected_count integer [not null]
+  error_share numeric [note: 'доля 0..1']
+  idempotency_key text [not null, unique]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table payout_rows {
+  id uuid [pk]
+  registry_id uuid [not null]
+  full_name text [not null]
+  inn varchar(12) [not null, note: 'исполнитель определяется по ИНН при создании выплаты']
+  phone text [not null]
+  amount numeric [not null]
+  purpose text [not null]
+  status row_status [not null]
+  reject_reason reject_reason
+  created_at timestamptz [not null]
+}
+
+Table payouts {
+  id uuid [pk]
+  registry_id uuid [not null]
+  row_id uuid [not null, unique, note: 'одна выплата на строку, CHK-07']
+  contractor_id uuid [not null, note: 'только для подтверждённого самозанятого, CHK-08']
+  amount numeric [not null]
+  status payout_status [not null]
+  sbp_ref text
+  attempts integer [not null, note: 'не более 3, AS-17']
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table receipts {
+  id uuid [pk]
+  payout_id uuid [not null, unique]
+  status receipt_status [not null]
+  received_at timestamptz
+  created_at timestamptz [not null]
+}
+
+Table processed_events {
+  event_id uuid [pk, note: 'защита от повторной обработки, AS-13']
+  consumer text [not null]
+  processed_at timestamptz [not null]
+}
+
+Table validation_reports {
+  registry_id uuid [pk, note: 'один отчёт на реестр']
+  row_count integer [not null]
+  accepted_count integer [not null]
+  rejected_count integer [not null]
+  error_share numeric [not null]
+  reasons jsonb [not null]
+  generated_at timestamptz [not null]
+}
+
+// --- связи ---
+
+Ref: companies.id < registries.company_id
+Ref: registries.id < payout_rows.registry_id
+Ref: registries.id < payouts.registry_id
+Ref: payout_rows.id - payouts.row_id
+Ref: contractors.id < payouts.contractor_id
+Ref: payouts.id - receipts.payout_id
+Ref: registries.id - validation_reports.registry_id
