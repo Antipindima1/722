@@ -22,7 +22,11 @@
 
 1. В DBeaver открыть соединение с PostgreSQL (Neon из задания).
 2. Выполнить `artifacts/schema-reset.sql` — снять прошлую схему, иначе будет ошибка `type already exists`.
-3. Выполнить `artifacts/schema-registry.sql` целиком.
+3. Выполнить `artifacts/schema-registry.sql` целиком **через `Alt+X` (Execute SQL Script)**.
+
+Важно: `Ctrl+Enter` в DBeaver выполняет только инструкцию под курсором. Если запускать так,
+`COMMENT ON TABLE receipts` упадёт с `relation receipts does not exist` — таблицы ещё
+не созданы.
 4. Проверить результат:
 
 ```sql
