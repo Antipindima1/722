@@ -24,6 +24,16 @@ Table contractors {
   created_at timestamptz [not null]
 }
 
+Table validation_reports {
+  registry_id uuid [pk, ref: > registries.id]
+  row_count integer [not null]
+  accepted_count integer [not null]
+  rejected_count integer [not null]
+  error_share numeric(5,4) [not null]
+  reasons jsonb [not null]
+  generated_at timestamptz [not null]
+}
+
 Table registries {
   id uuid [pk]
   company_id uuid [not null, ref: > companies.id]
@@ -98,6 +108,9 @@ Table receipts {
 | Таблица `processed_events` | `eventId` из AsyncAPI должен где-то храниться, иначе защита от повторной обработки не работает | `AS-13` |
 | Частичный уникальный индекс `(registry_id, inn) WHERE status='VALIDATED'` | `O-08` запрещает дубли ИНН в реестре; на уровне БД это возможно только для принятых строк | `O-08` |
 | Индекс `payouts(registry_id)` | отчёт по результатам выплаты читает выплаты по реестру | `SCRUM-2192` |
+| Функция `inn_is_valid` + CHECK на ИНН | контрольная сумма ИНН — требование критериев приёмки, а не пожелание; формат проверять недостаточно | `AS-09`, `SCRUM-2190` |
+| `registries.total_amount <= 10 000 000` | лимит реестра по сумме, не только по числу строк | `AS-02`, `SCRUM-2189` |
+| Таблица `validation_reports` | отчёт должен сохраняться вместе с реестром, а не собираться каждый раз заново | `SCRUM-2190` |
 
 ## Трассировка
 
@@ -109,9 +122,13 @@ Table receipts {
 | Отсутствие повторной выплаты | `payouts.row_id` unique |
 | Попытки отправки в СБП | `payouts.attempts` |
 | Чек по каждой выплате | `receipts.payout_id` unique |
+| Контрольная сумма ИНН | `inn_is_valid()` в CHECK у `contractors.inn` и `payout_rows.inn` |
+| Лимит суммы реестра | `registries.total_amount <= 10 000 000` |
+| Сохранение отчёта о проверке | `validation_reports` (первичный ключ — `registry_id`) |
 
 ## Ограничения модели
 
 - **Чеки и возвраты** описаны заделом под Ф2; в Ф1 таблица `receipts` не заполняется.
 - **История статусов** не хранится отдельной таблицей: в требованиях Ф1 аудит не заявлен.
+- **Контрольная сумма ИНН** реализована SQL-функцией; при переносе на другую СУБД её нужно повторить.
 - **Идемпотентность входящих событий** обеспечена таблицей `processed_events` (`AS-13`).
