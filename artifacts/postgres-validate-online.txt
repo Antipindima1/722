@@ -1,0 +1,18 @@
+PGlite (PostgreSQL в WASM)
+Файл: ..\artifacts\schema-online.sql
+
+DDL executed: OK
+tables (8): companies, contractors, payout_rows, payouts, processed_events, receipts, registries, validation_reports
+enum-типов: 0 (в этом варианте статусы хранятся как text с CHECK)
+foreign keys: 7
+indexes: 20
+
+Ограничения:
+CHECK OK: amount = 0 у строки -> new row for relation "payout_rows" violates check constraint "payout_rows_amount
+CHECK OK: повтор idempotency_key -> duplicate key value violates unique constraint "registries_idempotency_key_key"
+CHECK OK: сумма реестра больше 10 000 000 ₽ -> new row for relation "registries" violates check constraint "registries_total_am
+CHECK OK: REJECTED без причины -> new row for relation "payout_rows" violates check constraint "payout_rows_check"
+CHECK OK: реестр > 5000 строк -> new row for relation "registries" violates check constraint "registries_row_coun
+CHECK OK: недопустимый статус реестра -> new row for relation "registries" violates check constraint "registries_status_c
+
+Итог: DDL для онлайн-площадок исполняется, ограничения работают.
