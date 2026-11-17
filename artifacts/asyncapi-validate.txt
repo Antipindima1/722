@@ -1,24 +1,16 @@
-﻿node.exe : 
-строка:20 знак:8
-+ $out = & node $pnpm dlx @asyncapi/cli@2 validate artifacts/asyncapi-r ...
-+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-File artifacts/asyncapi-registry.yaml and/or referenced documents have governance issues.
-
-Errors 
-artifacts/asyncapi-registry.yaml
- 97:18  error  asyncapi2-message-messageId-uniqueness  "messageId" must be unique across all the messages.  components.messages.RegistryUploaded.messageId
-
-✖ 1 problem (1 error, 0 warnings, 0 infos, 0 hints)
-
+﻿
+File artifacts/asyncapi-registry.yaml is valid but has (itself and/or referenced documents) governance issues.
 Warnings 
 artifacts/asyncapi-registry.yaml
-  4:6   warning  asyncapi-info-license             Info object should have "license" object.                     info
- 11:11  warning  asyncapi-info-contact-properties  Contact object should have "name", "url" and "email" fields.  info.contact
+   4:6   warning  asyncapi-info-license             Info object should have "license" object.                     info
+  11:11  warning  asyncapi-info-contact-properties  Contact object should have "name", "url" and "email" fields.  info.contact
+ 100:22  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryUploaded
+ 112:21  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryChecked
+ 124:30  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryValidationFailed
+ 136:35  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryRevalidationRequested
+ 148:17  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.DlqEnvelope
 
-✖ 2 problems (0 errors, 2 warnings, 0 infos, 0 hints)
+✖ 7 problems (0 errors, 7 warnings, 0 infos, 0 hints)
 
 Information 
 artifacts/asyncapi-registry.yaml
