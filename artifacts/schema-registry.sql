@@ -30,30 +30,21 @@ CREATE TYPE payout_status AS ENUM ('CREATED', 'SENT', 'EXECUTED', 'DECLINED');
 CREATE TYPE receipt_status AS ENUM ('PENDING', 'RECEIVED', 'MISSING', 'CANCELLED');
 
 -- Контрольная сумма ИНН из 12 цифр (AS-09)
+-- Реализовано одним SQL-выражением без PL/pgSQL: такие функции переносятся
+-- онлайн-редакторами и простыми миграторами, которые режут скрипт по точке с запятой.
 CREATE OR REPLACE FUNCTION inn_is_valid(inn text) RETURNS boolean
-LANGUAGE plpgsql IMMUTABLE AS $$
-DECLARE
-    d int[];
-    w11 int[] := ARRAY[7,2,4,10,3,5,9,4,6,8];
-    w12 int[] := ARRAY[3,7,2,4,10,3,5,9,4,6,8];
-    i int;
-    s11 int := 0;
-    s12 int := 0;
-BEGIN
-    IF inn !~ '^[0-9]{12}$' THEN
-        RETURN false;
-    END IF;
-    FOR i IN 1..12 LOOP
-        d[i] := substr(inn, i, 1)::int;
-    END LOOP;
-    FOR i IN 1..10 LOOP
-        s11 := s11 + d[i] * w11[i];
-        s12 := s12 + d[i] * w12[i];
-    END LOOP;
-    s12 := s12 + d[11] * w12[11];
-    RETURN (s11 % 11) % 10 = d[11] AND (s12 % 11) % 10 = d[12];
-END;
-$$;
+LANGUAGE sql IMMUTABLE AS '
+SELECT CASE WHEN inn !~ ''^[0-9]{12}$'' THEN false ELSE
+    ((substr(inn,1,1)::int*7 + substr(inn,2,1)::int*2 + substr(inn,3,1)::int*4
+    + substr(inn,4,1)::int*10 + substr(inn,5,1)::int*3 + substr(inn,6,1)::int*5
+    + substr(inn,7,1)::int*9 + substr(inn,8,1)::int*4 + substr(inn,9,1)::int*6
+    + substr(inn,10,1)::int*8) % 11) % 10 = substr(inn,11,1)::int
+  AND
+    ((substr(inn,1,1)::int*3 + substr(inn,2,1)::int*7 + substr(inn,3,1)::int*2
+    + substr(inn,4,1)::int*4 + substr(inn,5,1)::int*10 + substr(inn,6,1)::int*3
+    + substr(inn,7,1)::int*5 + substr(inn,8,1)::int*9 + substr(inn,9,1)::int*4
+    + substr(inn,10,1)::int*6 + substr(inn,11,1)::int*8) % 11) % 10 = substr(inn,12,1)::int
+END';
 
 -- Компания-заказчик: владелец реестров и плательщик
 CREATE TABLE companies (
