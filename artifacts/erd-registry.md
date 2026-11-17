@@ -8,6 +8,10 @@
 ## Модель (DBML)
 
 ```dbml
+// ВыплатыПро: ER-диаграмма (dbdiagram.io / DBML)
+// Связи вынесены отдельными Ref-строками, чтобы не зависеть от нотации в колонке.
+// Один-к-одному — "-", один-ко-многим — "<", многие-к-одному — ">".
+
 Table companies {
   id uuid [pk]
   name text [not null]
@@ -16,32 +20,22 @@ Table companies {
 
 Table contractors {
   id uuid [pk]
-  inn char(12) [not null, unique]
+  inn char(12) [not null, unique, note: 'контрольная сумма проверяется функцией inn_is_valid']
   full_name text [not null]
   phone text [not null]
-  self_employed_status text [not null]
+  self_employed_status text [not null, note: 'ACTIVE / LOST / UNKNOWN']
   status_checked_at timestamptz
   created_at timestamptz [not null]
 }
 
-Table validation_reports {
-  registry_id uuid [pk, ref: - registries.id]
-  row_count integer [not null]
-  accepted_count integer [not null]
-  rejected_count integer [not null]
-  error_share numeric(5,4) [not null]
-  reasons jsonb [not null]
-  generated_at timestamptz [not null]
-}
-
 Table registries {
   id uuid [pk]
-  company_id uuid [not null, ref: > companies.id]
+  company_id uuid [not null]
   status registry_status [not null]
   file_name text [not null]
   object_key text [not null]
-  row_count integer [not null]
-  total_amount numeric(14,2) [not null]
+  row_count integer [not null, note: 'не более 5000, AS-02']
+  total_amount numeric(14,2) [not null, note: 'не более 10 000 000, AS-02']
   accepted_count integer [not null]
   rejected_count integer [not null]
   error_share numeric(5,4)
@@ -52,8 +46,8 @@ Table registries {
 
 Table payout_rows {
   id uuid [pk]
-  registry_id uuid [not null, ref: > registries.id]
-  contractor_id uuid [ref: > contractors.id]
+  registry_id uuid [not null]
+  contractor_id uuid [note: 'NULL, пока исполнитель не привязан после проверки']
   full_name text [not null]
   inn char(12) [not null]
   phone text [not null]
@@ -66,30 +60,66 @@ Table payout_rows {
 
 Table payouts {
   id uuid [pk]
-  registry_id uuid [not null, ref: > registries.id]
-  row_id uuid [not null, unique, ref: - payout_rows.id]
-  contractor_id uuid [ref: > contractors.id]
+  registry_id uuid [not null]
+  row_id uuid [not null, unique, note: 'одна выплата на строку, CHK-07']
+  contractor_id uuid [note: 'NULL, если исполнитель не привязан']
   amount numeric(14,2) [not null]
   status payout_status [not null]
   sbp_ref text
-  attempts integer [not null]
+  attempts integer [not null, note: 'не более 3, AS-17']
   created_at timestamptz [not null]
   updated_at timestamptz [not null]
 }
 
-Table processed_events {
-  event_id uuid [pk]
-  consumer text [not null]
-  processed_at timestamptz [not null]
-}
-
 Table receipts {
   id uuid [pk]
-  payout_id uuid [not null, unique, ref: - payouts.id]
+  payout_id uuid [not null, unique]
   status receipt_status [not null]
   received_at timestamptz
   created_at timestamptz [not null]
 }
+
+Table processed_events {
+  event_id uuid [pk, note: 'защита от повторной обработки, AS-13']
+  consumer text [not null]
+  processed_at timestamptz [not null]
+}
+
+Table validation_reports {
+  registry_id uuid [pk, note: 'один отчёт на реестр']
+  row_count integer [not null]
+  accepted_count integer [not null]
+  rejected_count integer [not null]
+  error_share numeric(5,4) [not null]
+  reasons jsonb [not null]
+  generated_at timestamptz [not null]
+}
+
+// --- связи ---
+
+// один-ко-многим: у компании много реестров
+Ref: companies.id < registries.company_id
+
+// один-ко-многим: у реестра много строк
+Ref: registries.id < payout_rows.registry_id
+
+// один-ко-многим, исполнитель может быть ещё не привязан (nullable)
+Ref: contractors.id < payout_rows.contractor_id
+
+// один-ко-многим: у реестра много выплат
+Ref: registries.id < payouts.registry_id
+
+// один-к-одному: одна выплата на строку реестра
+Ref: payout_rows.id - payouts.row_id
+
+// один-ко-многим, исполнитель может быть не привязан (nullable)
+Ref: contractors.id < payouts.contractor_id
+
+// один-к-одному: один чек на выплату
+Ref: payouts.id - receipts.payout_id
+
+// один-к-одному: один сохранённый отчёт на реестр
+Ref: registries.id - validation_reports.registry_id
 ```
 
 ## Принятые решения
