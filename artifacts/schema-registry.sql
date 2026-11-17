@@ -88,6 +88,10 @@ CREATE TABLE payout_rows (
 
 CREATE INDEX payout_rows_registry_status_idx ON payout_rows (registry_id, status);
 CREATE INDEX payout_rows_inn_idx ON payout_rows (inn);
+-- O-08: в одном реестре не может быть двух принятых строк с одним ИНН
+CREATE UNIQUE INDEX payout_rows_registry_inn_validated_uq
+    ON payout_rows (registry_id, inn)
+    WHERE status = 'VALIDATED';
 
 -- Выплата по строке реестра
 CREATE TABLE payouts (
@@ -104,6 +108,7 @@ CREATE TABLE payouts (
 );
 
 CREATE INDEX payouts_status_idx ON payouts (status);
+CREATE INDEX payouts_registry_idx ON payouts (registry_id);
 
 -- Чек ФНС по выплате
 CREATE TABLE receipts (
@@ -117,6 +122,14 @@ CREATE TABLE receipts (
 
 CREATE INDEX receipts_status_idx ON receipts (status);
 
+-- Идемпотентность входящих событий: AS-13, eventId из AsyncAPI
+CREATE TABLE processed_events (
+    event_id     uuid PRIMARY KEY,
+    consumer     text        NOT NULL CHECK (length(btrim(consumer)) > 0),
+    processed_at timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE processed_events IS 'Обработанные события: защита от повторной обработки по eventId, AS-13';
 COMMENT ON TABLE registries IS 'Реестр выплат: пакет строк, загруженный бухгалтером (knowledge/entities/registry.md)';
 COMMENT ON COLUMN registries.idempotency_key IS 'Ключ идемпотентности загрузки, AS-13';
 COMMENT ON COLUMN registries.row_count IS 'Не более 5000 строк в реестре, AS-02';
