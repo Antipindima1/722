@@ -49,7 +49,7 @@ mq -> reg : 17 RegistryUploaded {registry_id}
 reg -> s3 : 18 GET file (object_key)
 
 alt Файл недоступен в хранилище
-  reg -> db : 19 UPDATE registry (status=BLOCKED)
+  reg -> db : 19 UPDATE registry (status=VALIDATION_FAILED)
   reg -> mq : 20 Kafka RegistryValidationFailed {registry_id, reason=FILE_UNAVAILABLE}
 else Файл получен
   loop По 200 строк
@@ -99,6 +99,23 @@ reg --> api : 43 200 OK {items[{rowId, rejectReason, rejectMessage}], total}
 api --> web : 44 Ответ
 web --> acc : 45 Список строк с причинами отказа
 
+== Повторная проверка после технического сбоя ==
+acc -> web : 46 Отправить реестр на повторную проверку
+web -> api : 47 POST /registries/{id}/revalidation {Idempotency-Key}
+api -> reg : 48 POST /registries/{id}/revalidation
+
+alt Реестр не в статусе VALIDATION_FAILED
+  reg --> api : 49 409 Conflict {code=REGISTRY_NOT_VALIDATION_FAILED}
+  api --> web : 50 409
+  web --> acc : 51 Повторная проверка недоступна
+else Реестр в статусе VALIDATION_FAILED
+  reg -> db : 52 UPDATE registry (status=VALIDATING)
+  reg -> mq : 53 Kafka RegistryRevalidationRequested {registry_id, reason=FILE_AVAILABLE_AGAIN}
+  reg --> api : 54 202 Accepted {registry_id, status=VALIDATING}
+  api --> web : 55 202
+  web --> acc : 56 Реестр снова проверяется
+end
+
 @enduml
 ```
 
@@ -111,6 +128,7 @@ web --> acc : 45 Список строк с причинами отказа
 | 22, 23 | `POST /payouts/exists:batch` | 200 |
 | 32–38 | `GET /registries/{registryId}` | 200, 304 |
 | 40–45 | `GET /registries/{registryId}/rows` | 200 |
+| 47–56 | `POST /registries/{registryId}/revalidation` | 202, 409 |
 
 ## Соответствие правилам
 
@@ -124,7 +142,8 @@ web --> acc : 45 Список строк с причинами отказа
 | `AS-14` (блокировка при >10% ошибок) | шаг 26 |
 | `O-06`, `AS-15` (маскирование ПДн) | шаг 42 |
 | **`AS-17` (ретраи и DLQ)** | **блок «Доставка событий»: 3 попытки 1/5/15 с, затем публикация в DLQ** |
-| Отказ хранилища | ветка «Файл недоступен» → `BLOCKED` + событие об ошибке |
+| Отказ хранилища | ветка «Файл недоступен» → `VALIDATION_FAILED` + событие об ошибке |
+| **`AS-19` (технический сбой ≠ блокировка по данным)** | **ветка «Файл недоступен» и блок «Повторная проверка»: `VALIDATION_FAILED → VALIDATING`** |
 
 ## Что не показано
 

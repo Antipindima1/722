@@ -132,6 +132,38 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /registries/{registryId}/revalidation:
+    post:
+      tags: [registries]
+      operationId: requestRegistryRevalidation
+      summary: Отправить реестр на повторную проверку
+      description: |
+        Повторная проверка нужна после технического сбоя (файл был недоступен, таймаут).
+        Доступна только для реестра в статусе VALIDATION_FAILED. Если реестр заблокирован
+        из-за доли ошибок (BLOCKED), повторная проверка бессмысленна: сначала исправляют данные.
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Реестр отправлен на повторную проверку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistryAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /registries/{registryId}/rows:
     get:
       tags: [registries]
@@ -364,7 +396,7 @@ components:
     RegistryStatus:
       type: string
       description: Статус реестра
-      enum: [UPLOADED, VALIDATING, CHECKED, BLOCKED, REJECTED, CANCELLED]
+      enum: [UPLOADED, VALIDATING, CHECKED, BLOCKED, VALIDATION_FAILED, REJECTED, CANCELLED]
     RowStatus:
       type: string
       description: Результат проверки строки
@@ -535,6 +567,7 @@ components:
         - REGISTRY_LIMIT_EXCEEDED
         - REGISTRY_BLOCKED
         - IDEMPOTENCY_KEY_REUSED
+        - REGISTRY_NOT_VALIDATION_FAILED
         - FILE_TOO_LARGE
         - INTERNAL_ERROR
         - SERVICE_UNAVAILABLE

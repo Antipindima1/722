@@ -37,7 +37,7 @@ mq -> reg : 17 RegistryUploaded {registry_id}
 reg -> s3 : 18 GET file (object_key)
 
 alt Файл недоступен в хранилище
-  reg -> db : 19 UPDATE registry (status=BLOCKED)
+  reg -> db : 19 UPDATE registry (status=VALIDATION_FAILED)
   reg -> mq : 20 Kafka RegistryValidationFailed {registry_id, reason=FILE_UNAVAILABLE}
 else Файл получен
   loop По 200 строк
@@ -86,5 +86,22 @@ reg -> db : 42 SELECT rows (reject_reason, amount, inn_masked)
 reg --> api : 43 200 OK {items[{rowId, rejectReason, rejectMessage}], total}
 api --> web : 44 Ответ
 web --> acc : 45 Список строк с причинами отказа
+
+== Повторная проверка после технического сбоя ==
+acc -> web : 46 Отправить реестр на повторную проверку
+web -> api : 47 POST /registries/{id}/revalidation {Idempotency-Key}
+api -> reg : 48 POST /registries/{id}/revalidation
+
+alt Реестр не в статусе VALIDATION_FAILED
+  reg --> api : 49 409 Conflict {code=REGISTRY_NOT_VALIDATION_FAILED}
+  api --> web : 50 409
+  web --> acc : 51 Повторная проверка недоступна
+else Реестр в статусе VALIDATION_FAILED
+  reg -> db : 52 UPDATE registry (status=VALIDATING)
+  reg -> mq : 53 Kafka RegistryRevalidationRequested {registry_id, reason=FILE_AVAILABLE_AGAIN}
+  reg --> api : 54 202 Accepted {registry_id, status=VALIDATING}
+  api --> web : 55 202
+  web --> acc : 56 Реестр снова проверяется
+end
 
 @enduml

@@ -152,3 +152,19 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 | Spectral (ошибок) | **0** |
 | Рендер Sequence HTTP | **200** |
 | SVG | 45 537 байт |
+
+## 13. Согласованность статусов с базой знаний
+
+Найдено при проверке связности: в Sequence технический сбой помечался статусом `BLOCKED`,
+хотя по `02-business-rules.md` §4.1 и `AS-14` `BLOCKED` — это превышение доли ошибок в данных.
+
+| Что сделано | Где |
+|---|---|
+| Новый статус `VALIDATION_FAILED` для технического сбоя | `knowledge/02-business-rules.md` §4.1 + mermaid |
+| Допущение `AS-19`: техническая ошибка ≠ блокировка по данным | `knowledge/03-assumptions.md` |
+| `VALIDATION_FAILED` в `RegistryStatus` | `openapi-registry.yaml` |
+| Операция `POST /registries/{registryId}/revalidation` | `openapi-registry.yaml` |
+| Код `REGISTRY_NOT_VALIDATION_FAILED` | `ErrorCode` + таблица в `openapi-registry.md` |
+
+Повторные прогоны: Spectral — 0 ошибок; рендер Sequence — HTTP 200, 53 110 байт,
+`VALIDATION_FAILED`, `revalidation` и `REGISTRY_NOT_VALIDATION_FAILED` в SVG есть.
