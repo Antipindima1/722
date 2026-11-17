@@ -106,7 +106,6 @@ COMMENT ON TABLE validation_reports IS 'Сохранённый отчёт о п�
 CREATE TABLE payout_rows (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     registry_id   uuid          NOT NULL REFERENCES registries (id) ON DELETE CASCADE,
-    contractor_id uuid          REFERENCES contractors (id) ON DELETE SET NULL,
     full_name     text          NOT NULL CHECK (length(btrim(full_name)) > 0),
     inn           char(12)      NOT NULL
                                   CHECK (inn::text ~ '^[0-9]{12}$' AND inn_is_valid(inn::text)),
@@ -134,7 +133,7 @@ CREATE TABLE payouts (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     registry_id   uuid            NOT NULL REFERENCES registries (id) ON DELETE RESTRICT,
     row_id        uuid            NOT NULL UNIQUE REFERENCES payout_rows (id) ON DELETE RESTRICT,
-    contractor_id uuid            REFERENCES contractors (id) ON DELETE SET NULL,
+    contractor_id uuid            NOT NULL REFERENCES contractors (id) ON DELETE RESTRICT,
     amount        numeric(14, 2) NOT NULL CHECK (amount > 0 AND amount <= 1000000),
     status        payout_status   NOT NULL DEFAULT 'CREATED',
     sbp_ref       text,
