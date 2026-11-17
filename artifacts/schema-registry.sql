@@ -1,6 +1,8 @@
 -- ВыплатыПро: модель данных контура реестра и выплат (Ф1 + задел под Ф2)
 -- PostgreSQL 15+
 -- Проверка: исполнение на PGlite (WASM PostgreSQL), см. artifacts/postgres-validate.txt
+-- Скрипт НЕ идемпотентный: рассчитан на пустую базу. Для повторного применения сначала
+-- выполните artifacts/schema-reset.sql (удаляет таблицы и типы контура).
 
 CREATE TYPE registry_status AS ENUM (
     'UPLOADED',
