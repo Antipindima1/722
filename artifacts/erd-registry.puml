@@ -1,0 +1,109 @@
+@startuml
+title ВыплатыПро — модель данных (ER)
+
+hide circle
+skinparam linetype ortho
+skinparam entity {
+  BackgroundColor #FDFDFD
+  BorderColor #333333
+}
+
+entity "companies" as companies {
+  * id : uuid <<PK>>
+  --
+  * name : text
+  * created_at : timestamptz
+}
+
+entity "contractors" as contractors {
+  * id : uuid <<PK>>
+  --
+  * inn : varchar(12) <<UQ, CHECK>>
+  * full_name : text
+  * phone : text
+  * self_employed_status : text
+  status_checked_at : timestamptz
+  * created_at : timestamptz
+}
+
+entity "registries" as registries {
+  * id : uuid <<PK>>
+  --
+  * company_id : uuid <<FK>>
+  * status : registry_status
+  * file_name : text
+  * object_key : text
+  * row_count : integer
+  * total_amount : numeric(14,2)
+  * accepted_count : integer
+  * rejected_count : integer
+  error_share : numeric(5,4)
+  * idempotency_key : text <<UQ>>
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "payout_rows" as payout_rows {
+  * id : uuid <<PK>>
+  --
+  * registry_id : uuid <<FK>>
+  * full_name : text
+  * inn : varchar(12) <<CHECK>>
+  * phone : text
+  * amount : numeric(14,2)
+  * purpose : text
+  * status : row_status
+  reject_reason : reject_reason
+  * created_at : timestamptz
+}
+
+entity "payouts" as payouts {
+  * id : uuid <<PK>>
+  --
+  * registry_id : uuid <<FK>>
+  * row_id : uuid <<FK, UQ>>
+  * contractor_id : uuid <<FK>>
+  * amount : numeric(14,2)
+  * status : payout_status
+  sbp_ref : text
+  * attempts : integer
+  * created_at : timestamptz
+  * updated_at : timestamptz
+}
+
+entity "receipts" as receipts {
+  * id : uuid <<PK>>
+  --
+  * payout_id : uuid <<FK, UQ>>
+  * status : receipt_status
+  received_at : timestamptz
+  * created_at : timestamptz
+}
+
+entity "processed_events" as processed_events {
+  * event_id : uuid <<PK>>
+  --
+  * consumer : text
+  * processed_at : timestamptz
+}
+
+entity "validation_reports" as validation_reports {
+  * registry_id : uuid <<PK, FK>>
+  --
+  * row_count : integer
+  * accepted_count : integer
+  * rejected_count : integer
+  * error_share : numeric(5,4)
+  * reasons : jsonb
+  * generated_at : timestamptz
+}
+
+companies ||--o{ registries : "владеет"
+registries ||--o{ payout_rows : "содержит"
+registries ||--o{ payouts : "порождает"
+payout_rows ||--|| payouts : "одна выплата"
+contractors ||--o{ payouts : "получает"
+payouts ||--|| receipts : "чек"
+registries ||--|| validation_reports : "отчёт"
+
+@enduml
