@@ -396,11 +396,21 @@ components:
     RegistryStatus:
       type: string
       description: Статус реестра
-      enum: [UPLOADED, VALIDATING, CHECKED, BLOCKED, VALIDATION_FAILED, REJECTED, CANCELLED]
+      enum:
+        - UPLOADED
+        - VALIDATING
+        - CHECKED
+        - BLOCKED
+        - VALIDATION_FAILED
+        - REJECTED
+        - CANCELLED
+        - PAYING
+        - DONE
+        - DONE_WITH_ERRORS
     RowStatus:
       type: string
       description: Результат проверки строки
-      enum: [NEW, VALIDATED, REJECTED]
+      enum: [NEW, VALIDATED, REJECTED, PAYING, PAID, FAILED]
     RejectReason:
       type: string
       description: Код причины отклонения строки
