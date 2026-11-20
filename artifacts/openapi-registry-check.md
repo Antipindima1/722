@@ -168,3 +168,17 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 
 Повторные прогоны: Spectral — 0 ошибок; рендер Sequence — HTTP 200, 53 110 байт,
 `VALIDATION_FAILED`, `revalidation` и `REGISTRY_NOT_VALIDATION_FAILED` в SVG есть.
+
+## 14. Согласование статусов с базой знаний
+
+При аудите найдено: жизненный цикл реестра в `knowledge/02-business-rules.md` §4.1 содержит
+статусы «В выплате», «Завершён», «Завершён с ошибками», а строки — «В выплате», «Выплачена»,
+«Ошибка». В спецификации их не было.
+
+| Что сделано | Где |
+|---|---|
+| `RegistryStatus` дополнен `PAYING`, `DONE`, `DONE_WITH_ERRORS` | `openapi-registry.yaml` |
+| `RowStatus` дополнен `PAYING`, `PAID`, `FAILED` | `openapi-registry.yaml` |
+| Статус выплаты приведён к имени из базы знаний: `SENT` → `SENT_TO_SBP` | `schema-registry.sql` |
+
+Повторный прогон Spectral: код возврата **0**, ошибок **0**.
