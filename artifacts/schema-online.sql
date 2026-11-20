@@ -25,7 +25,7 @@ CREATE TABLE registries (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id      uuid           NOT NULL REFERENCES companies (id) ON DELETE RESTRICT,
     status          text           NOT NULL DEFAULT 'UPLOADED'
-                                  CHECK (status IN ('UPLOADED','VALIDATING','CHECKED','BLOCKED','VALIDATION_FAILED','REJECTED','CANCELLED')),
+                                  CHECK (status IN ('UPLOADED','VALIDATING','CHECKED','BLOCKED','VALIDATION_FAILED','REJECTED','CANCELLED','PAYING','DONE','DONE_WITH_ERRORS')),
     file_name       text           NOT NULL,
     object_key      text           NOT NULL,
     row_count       integer        NOT NULL DEFAULT 0 CHECK (row_count >= 0 AND row_count <= 5000),
@@ -62,7 +62,7 @@ CREATE TABLE payout_rows (
     amount        numeric(14, 2) NOT NULL CHECK (amount > 0 AND amount <= 1000000),
     purpose       text           NOT NULL CHECK (length(btrim(purpose)) > 0),
     status        text           NOT NULL DEFAULT 'NEW'
-                                 CHECK (status IN ('NEW','VALIDATED','REJECTED')),
+                                 CHECK (status IN ('NEW','VALIDATED','REJECTED','PAYING','PAID','FAILED')),
     reject_reason text           CHECK (reject_reason IN ('INVALID_INN','DUPLICATE_INN','AMOUNT_OUT_OF_RANGE','INVALID_PHONE','ALREADY_PAID','MISSING_REQUIRED_FIELD')),
     created_at    timestamptz    NOT NULL DEFAULT now(),
     CHECK ((status = 'REJECTED' AND reject_reason IS NOT NULL)
@@ -82,7 +82,7 @@ CREATE TABLE payouts (
     contractor_id uuid           NOT NULL REFERENCES contractors (id) ON DELETE RESTRICT,
     amount        numeric(14, 2) NOT NULL CHECK (amount > 0 AND amount <= 1000000),
     status        text           NOT NULL DEFAULT 'CREATED'
-                                 CHECK (status IN ('CREATED','SENT','EXECUTED','DECLINED')),
+                                 CHECK (status IN ('CREATED','SENT_TO_SBP','EXECUTED','DECLINED')),
     sbp_ref       text,
     attempts      integer        NOT NULL DEFAULT 0 CHECK (attempts >= 0 AND attempts <= 3),
     created_at    timestamptz    NOT NULL DEFAULT now(),
