@@ -1,1 +1,25 @@
-﻿[]No results with a severity of 'error' found!
+﻿node.exe : Progress: resolved 1, reused 0, downloaded 0, added 0
+строка:7 знак:6
++ $s = & node $pnpm dlx @stoplight/spectral-cli@6 lint artifacts/openap ...
++      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Progress: resol...aded 0, added 0:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Progress: resolved 66, reused 66, downloaded 0, added 0
+
+Progress: resolved 206, reused 204, downloaded 1, added 0
+
+[WARN] 3 deprecated subdependencies found: glob@7.2.3, inflight@1.0.6, sourcemap-codec@1.4.8
+
+Packages: +241
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Progress: resolved 242, reused 240, downloaded 1, added 15
+
+Progress: resolved 242, reused 240, downloaded 1, added 19
+
+Progress: resolved 242, reused 240, downloaded 1, added 20
+
+Progress: resolved 242, reused 240, downloaded 1, added 20, done
+
+[]No results with a severity of 'error' found!
