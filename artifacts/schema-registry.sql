@@ -5,16 +5,26 @@
 -- выполните artifacts/schema-reset.sql (удаляет таблицы и типы контура).
 
 CREATE TYPE registry_status AS ENUM (
-    'UPLOADED',
-    'VALIDATING',
-    'CHECKED',
-    'BLOCKED',
-    'VALIDATION_FAILED',
-    'REJECTED',
-    'CANCELLED'
+    'UPLOADED',          -- Загружен
+    'VALIDATING',        -- Проверяется
+    'CHECKED',           -- Проверен
+    'BLOCKED',           -- Заблокирован (доля ошибок выше порога)
+    'VALIDATION_FAILED', -- Ошибка проверки (техническая причина)
+    'REJECTED',          -- Отклонён
+    'CANCELLED',         -- Отменён
+    'PAYING',            -- В выплате
+    'DONE',              -- Завершён
+    'DONE_WITH_ERRORS'   -- Завершён с ошибками
 );
 
-CREATE TYPE row_status AS ENUM ('NEW', 'VALIDATED', 'REJECTED');
+CREATE TYPE row_status AS ENUM (
+    'NEW',        -- Новая
+    'VALIDATED',  -- Проверена
+    'REJECTED',   -- Отклонена
+    'PAYING',     -- В выплате
+    'PAID',       -- Выплачена
+    'FAILED'      -- Ошибка
+);
 
 CREATE TYPE reject_reason AS ENUM (
     'INVALID_INN',
@@ -25,7 +35,12 @@ CREATE TYPE reject_reason AS ENUM (
     'MISSING_REQUIRED_FIELD'
 );
 
-CREATE TYPE payout_status AS ENUM ('CREATED', 'SENT', 'EXECUTED', 'DECLINED');
+CREATE TYPE payout_status AS ENUM (
+    'CREATED',      -- Создана
+    'SENT_TO_SBP',  -- Отправлена в СБП
+    'EXECUTED',     -- Исполнена
+    'DECLINED'      -- Отклонена
+);
 
 CREATE TYPE receipt_status AS ENUM ('PENDING', 'RECEIVED', 'MISSING', 'CANCELLED');
 
