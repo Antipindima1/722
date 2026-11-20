@@ -110,7 +110,7 @@ Table payouts {
   row_id uuid [not null, unique, note: 'одна выплата на строку, CHK-07']
   contractor_id uuid [not null, note: 'только для подтверждённого самозанятого, CHK-08']
   amount numeric [not null]
-  status payout_status [not null]
+  status payout_status [not null, note: 'CREATED / SENT_TO_SBP / EXECUTED / DECLINED']
   sbp_ref text
   attempts integer [not null, note: 'не более 3, AS-17']
   created_at timestamptz [not null]
