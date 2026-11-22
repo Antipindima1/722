@@ -127,7 +127,7 @@ cd .tmp-pglite && node check.mjs ../artifacts/schema-registry.sql
 | Схема | 8 таблиц, 5 enum-типов, 7 внешних ключей, 20 индексов |
 | Самопроверка `schema-verify.sql` | 11 из 11 проверок `passed = true` |
 | Отчёт | `artifacts/dbeaver-check.md` |
-| Скриншот | приложен к задаче |
+| Скриншот | `artifacts/dbeaver-schema-verify.png` |
 
 Отдельно зафиксировано: `Ctrl+Enter` в DBeaver выполняет только инструкцию под курсором, поэтому
 скрипт запускается через `Alt+X`. При запуске одной инструкции `COMMENT ON TABLE receipts` падает
