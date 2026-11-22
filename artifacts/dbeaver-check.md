@@ -20,8 +20,10 @@
 
 ## Скриншот
 
-Скриншот выполнения скрипта и результата schema-verify.sql прилагается отдельным файлом:
-rtifacts/dbeaver-schema-verify.png.
+На снимке видно: 8 таблиц в схеме `public` (`companies`, `contractors`, `payout_rows`, `payouts`, `processed_events`, `receipts`, `registries`, `validation_reports`), открытый скрипт и результат `verify_results` — 11 строк, `passed = true` у всех.
+
+Файл скриншота:
+[`artifacts/dbeaver-schema-verify.png`](dbeaver-schema-verify.png) — DBeaver 26.2.1, соединение `neondb`.
 
 ## Ожидаемые числа проверки
 
