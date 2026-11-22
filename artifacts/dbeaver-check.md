@@ -18,6 +18,11 @@
 `COMMENT ON TABLE receipts` падает с `relation "receipts" does not exist` — таблицы ещё
 не созданы. Это ошибка запуска, а не DDL.
 
+## Скриншот
+
+Скриншот выполнения скрипта и результата schema-verify.sql прилагается отдельным файлом:
+rtifacts/dbeaver-schema-verify.png.
+
 ## Ожидаемые числа проверки
 
 | Показатель | Значение |
