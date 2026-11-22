@@ -39,6 +39,7 @@ channels:
         maxAttempts: 3
         backoffSeconds: [1, 5, 15]
         dlqChannel: registry.events.dlq
+        source: AS-20
         retryOn: [timeout, 5xx]
         doNotRetryOn: [invalid-payload, schema-mismatch]
       bindings:
