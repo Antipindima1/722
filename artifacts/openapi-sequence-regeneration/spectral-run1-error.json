@@ -1,0 +1,19 @@
+[
+	{
+		"code": "parser",
+		"path": [],
+		"message": "Incomplete explicit mapping pair; a key node is missed",
+		"severity": 0,
+		"range": {
+			"start": {
+				"line": 156,
+				"character": 25
+			},
+			"end": {
+				"line": 156,
+				"character": 25
+			}
+		},
+		"source": "artifacts/openapi-sequence-regeneration/openapi.agent-draft.yaml"
+	}
+]

@@ -20,8 +20,9 @@
 | E-07 | Дубль `messageId` при переиспользовании сообщения | `artifacts/asyncapi-registry.yaml` | `skills/asyncapi-design` |
 | E-08 | Не проверены контрольная сумма ИНН и лимит суммы реестра | `artifacts/schema-registry.sql` | `skills/erd-data-model` |
 | E-09 | Проверка «уже выплачено» описана без источника данных | `artifacts/openapi-registry.yaml` | `skills/openapi-design`, `skills/sequence-diagram` |
+| E-10 | Двоеточие в незакавыченном YAML-значении ломает спецификацию | `artifacts/openapi-sequence-regeneration/openapi.agent-draft.yaml` | `skills/openapi-design` |
 
-Итого: **9 ошибок**, все 9 привели к правке навыков.
+Итого: **10 ошибок**, все 10 привели к правке навыков.
 DoD требует ≥5 ошибок и ≥2 правки `SKILL.md`.
 
 ---
@@ -150,6 +151,19 @@ DoD требует ≥5 ошибок и ≥2 правки `SKILL.md`.
   источник данных и покрыта тестом `schema-verify.sql`.
 - **Что изменено в навыке.** `skills/openapi-design/SKILL.md` и `skills/sequence-diagram/SKILL.md` —
   раздел «Правила из журнала ошибок»: для каждой проверки указан источник данных и владелец.
+
+## E-10. Двоеточие в незакавыченном значении YAML
+
+- **Что сделал агент.** При перегенерации OpenAPI написал `description: Сводка: принято,
+  отклонено…` — двоеточие с пробелом внутри значения. YAML увидел вложенную пару ключ-значение,
+  и Spectral упал с `parser: Incomplete explicit mapping pair` на строке 156.
+- **Какое правило нарушено.** Значения со символами, ломающими разметку (`: `), заключаются
+  в кавычки; спецификация обязана читаться парсером до любых проверок.
+- **Как проверено, что ошибка ушла.** Значение взято в кавычки, повторный прогон Spectral:
+  код возврата 0, ошибок 0 (`artifacts/openapi-sequence-regeneration/spectral.json`).
+  Первый прогон с ошибкой сохранён: `spectral-run1-error.json`.
+- **Что изменено в навыке.** `skills/openapi-design/SKILL.md` — правило E-10: значения
+  с `: ` пишутся в кавычках.
 
 ## Вывод по проверкам
 
