@@ -94,3 +94,9 @@ node <pnpm.mjs> dlx @asyncapi/cli@2 validate artifacts/asyncapi-registry.yaml
 `registry.revalidation-requested` теперь имеет шаг в Sequence Ф1 (блок «Повторная проверка»).
 
 AsyncAPI CLI: 0 ошибок, 7 предупреждений (5 `messageId`, лицензия, email).
+
+## 8. Сохранение вывода инструмента
+
+Вывод AsyncAPI CLI сохраняется в `artifacts/asyncapi-validate.txt` после каждого прогона,
+без служебных строк сборщика. Последний прогон: 2026-11-22, код возврата 0, ошибок 0,
+7 предупреждений (лицензия, email, `messageId`).

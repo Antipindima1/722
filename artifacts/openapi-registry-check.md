@@ -182,3 +182,16 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 | Статус выплаты приведён к имени из базы знаний: `SENT` → `SENT_TO_SBP` | `schema-registry.sql` |
 
 Повторный прогон Spectral: код возврата **0**, ошибок **0**.
+
+## 15. Сохранение вывода инструмента
+
+Вывод Spectral сохраняется в репозиторий после каждого прогона, командой с `--output`:
+
+```
+spectral lint artifacts/openapi-registry.yaml --ruleset .spectral.yaml \
+         --format json --output artifacts/spectral-registry.json
+```
+
+Файл `artifacts/spectral-registry.json` содержит только JSON результата (при отсутствии
+ошибок — `[]`), без служебных строк сборщика. Последний прогон: 2026-11-22, код возврата 0,
+ошибок 0.
