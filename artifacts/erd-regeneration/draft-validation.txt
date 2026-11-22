@@ -1,0 +1,34 @@
+PGlite (PostgreSQL в WASM)
+Файл: draft.sql
+
+DDL executed: OK
+tables: companies, contractors, payout_rows, payouts, processed_events, receipts, registries, validation_reports
+enums: payout_status, receipt_status, registry_status, reject_reason, row_status
+foreign keys: 7
+  payout_rows.registry_id -> registries
+  payouts.registry_id -> registries
+  payouts.row_id -> payout_rows
+  payouts.contractor_id -> contractors
+  receipts.payout_id -> payouts
+  registries.company_id -> companies
+  validation_reports.registry_id -> registries
+indexes: 20
+inn_is_valid('123456789047') = true; inn_is_valid('123456789012') = false
+
+Ограничения (ожидается ошибка на каждое нарушение):
+CHECK OK: amount = 0 у строки -> new row for relation "payout_rows" violates check constraint "payout_rows_amount_check"
+CHECK OK: ИНН с неверной контрольной суммой -> new row for relation "payout_rows" violates check constraint "payout_rows_inn_check"
+CHECK OK: повтор idempotency_key -> duplicate key value violates unique constraint "registries_idempotency_key_key"
+CHECK OK: сумма реестра больше 10 000 000 ₽ -> new row for relation "registries" violates check constraint "registries_total_amount_check
+CHECK OK: REJECTED без причины -> new row for relation "payout_rows" violates check constraint "payout_rows_check"
+CHECK OK: attempts = 4 -> new row for relation "payouts" violates check constraint "payouts_attempts_check"
+CHECK OK: чек RECEIVED без даты -> new row for relation "receipts" violates check constraint "receipts_check"
+CHECK OK: реестр > 5000 строк -> new row for relation "registries" violates check constraint "registries_row_count_check"
+CHECK OK: дубль принятой строки с одним ИНН -> duplicate key value violates unique constraint "payout_rows_validated_inn_uq"
+CHECK OK: повторная обработка того же eventId -> duplicate key value violates unique constraint "processed_events_pkey"
+
+Отчёт о проверке:
+INSERT OK: сохранение отчёта по реестру
+CHECK OK: второй отчёт по тому же реестру -> duplicate key value violates unique constraint "validation_reports_pkey"
+
+Итог: DDL исполняется, ограничения срабатывают.
