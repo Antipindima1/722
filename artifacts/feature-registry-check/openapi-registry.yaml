@@ -96,6 +96,10 @@ paths:
           $ref: '#/components/responses/ServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /registries/{registryId}:
     get:
       tags: [registries]
@@ -204,6 +208,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '400':
+          $ref: '#/components/responses/BadRequest'
   /registries/{registryId}/report:
     get:
       tags: [registries]
@@ -229,6 +235,10 @@ paths:
           $ref: '#/components/responses/ServiceUnavailable'
         '404':
           $ref: '#/components/responses/NotFound'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 components:
   securitySchemes:
     bearerAuth:
