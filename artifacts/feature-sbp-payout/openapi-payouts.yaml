@@ -1,0 +1,286 @@
+openapi: 3.0.3
+info:
+  title: ВыплатыПро — выплаты по СБП (Ф2)
+  version: 1.0.0
+  description: |
+    Запуск пакетной выплаты по проверенному реестру, статус выплат, разбор ошибок и повторный
+    запуск по проблемным строкам. Проверки: CHK-08…CHK-12 (knowledge/02-business-rules.md §2.2).
+servers:
+  - url: https://api.vyplatypro.example/v1
+tags:
+  - name: payouts
+    description: Выплаты по СБП
+security:
+  - bearerAuth: []
+paths:
+  /registries/{registryId}/payouts:
+    post:
+      tags: [payouts]
+      operationId: startRegistryPayouts
+      summary: Запустить выплаты по реестру
+      description: |
+        Запуск доступен только для реестра в статусе CHECKED (CHK-09). Перед запуском проверяются
+        достаточность средств на пакет (CHK-10) и суточный лимит (CHK-12). Статус самозанятого
+        подтверждается перед каждой выплатой (CHK-08). Повтор с тем же Idempotency-Key не создаёт
+        вторых выплат (AS-13).
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Пакет выплат принят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    get:
+      tags: [payouts]
+      operationId: listRegistryPayouts
+      summary: Выплаты по реестру
+      description: Постраничный список выплат с фильтром по статусу — основа отчёта по результатам.
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/PayoutStatus'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Страница выплат
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PayoutPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /payouts/{payoutId}:
+    get:
+      tags: [payouts]
+      operationId: getPayout
+      summary: Статус выплаты
+      description: Возвращает статус, число попыток и причину отказа, если выплата не выполнена.
+      parameters:
+        - name: payoutId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Выплата
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payout'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /registries/{registryId}/payouts/retry:
+    post:
+      tags: [payouts]
+      operationId: retryFailedPayouts
+      summary: Повторный запуск по проблемным строкам
+      description: |
+        Повторно запускаются только выплаты в статусе ERROR. Уже исполненные строки не
+        оплачиваются повторно: ключ registry_id + row_id (CHK-11, AS-13).
+      parameters:
+        - $ref: '#/components/parameters/RegistryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Повторный запуск принят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchAccepted'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    RegistryId:
+      name: registryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  responses:
+    Unauthorized:
+      description: Требуется аутентификация
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Нет прав на операцию
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Реестр или выплата не найдены
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Нарушено условие запуска выплат
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Внутренняя ошибка
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServiceUnavailable:
+      description: Сервис или СБП временно недоступны
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    PayoutStatus:
+      type: string
+      enum: [CREATED, SENT_TO_SBP, EXECUTED, DECLINED, ERROR]
+    BatchAccepted:
+      type: object
+      required: [batchId, registryId, status, payoutCount, acceptedAt]
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        registryId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PAYING]
+        payoutCount:
+          type: integer
+          minimum: 1
+        acceptedAt:
+          type: string
+          format: date-time
+    Payout:
+      type: object
+      required: [payoutId, registryId, rowId, amount, status, attempts, createdAt]
+      properties:
+        payoutId:
+          type: string
+          format: uuid
+        registryId:
+          type: string
+          format: uuid
+        rowId:
+          type: string
+          format: uuid
+        amount:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+        status:
+          $ref: '#/components/schemas/PayoutStatus'
+        attempts:
+          type: integer
+          minimum: 0
+          maximum: 3
+        sbpRef:
+          type: string
+        errorReason:
+          type: string
+          description: Причина ошибки после исчерпания попыток
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PayoutPage:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payout'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - REGISTRY_NOT_CHECKED
+            - INSUFFICIENT_FUNDS
+            - DAILY_LIMIT_EXCEEDED
+            - IDEMPOTENCY_KEY_REUSED
+            - RETRY_NOT_ALLOWED
+            - PAYOUT_NOT_FOUND
+            - UNAUTHENTICATED
+            - FORBIDDEN
+            - INTERNAL_ERROR
+            - SERVICE_UNAVAILABLE
+        message:
+          type: string
