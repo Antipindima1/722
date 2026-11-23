@@ -107,7 +107,13 @@ else Есть проблемные строки
     pay --> api : 57 202 Accepted {retryBatchId}
     loop По проблемным строкам — обработка запускается снова
       pay -> fns : 58 запрос статуса самозанятого {inn}
-      pay -> sbp : 59 POST /payments {payoutId, phone, amount, Idempotency-Key}
+      alt Статус утрачен
+        pay -> db : 58a UPDATE payout (status=DECLINED, reason=CONTRACTOR_STATUS_LOST)
+      else ФНС не ответила
+        pay -> db : 58b UPDATE payout (status=ERROR, reason=FNS_UNAVAILABLE)
+      else Статус подтверждён
+        pay -> sbp : 59 POST /payments {payoutId, phone, amount, Idempotency-Key}
+      end
     end
   end
 end
