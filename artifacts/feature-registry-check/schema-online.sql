@@ -1,5 +1,5 @@
 -- ВыплатыПро: вариант DDL для онлайн-площадок (RunSQL, dbfiddle и подобные)
--- Отличия от artifacts/f1-registry/schema-registry.sql:
+-- Отличия от artifacts/feature-registry-check/schema-registry.sql:
 --   * нет CREATE TYPE — статусы хранятся как text с CHECK (... IN (...));
 --   * нет CREATE FUNCTION — проверка контрольной суммы ИНН остаётся в полной версии.
 -- Модель, ключи, индексы и остальные ограничения совпадают с полной версией.
@@ -82,7 +82,7 @@ CREATE TABLE payouts (
     contractor_id uuid           NOT NULL REFERENCES contractors (id) ON DELETE RESTRICT,
     amount        numeric(14, 2) NOT NULL CHECK (amount > 0 AND amount <= 1000000),
     status        text           NOT NULL DEFAULT 'CREATED'
-                                 CHECK (status IN ('CREATED','SENT_TO_SBP','EXECUTED','DECLINED')),
+                                 CHECK (status IN ('CREATED','SENT_TO_SBP','EXECUTED','DECLINED','ERROR')),
     sbp_ref       text,
     attempts      integer        NOT NULL DEFAULT 0 CHECK (attempts >= 0 AND attempts <= 3),
     created_at    timestamptz    NOT NULL DEFAULT now(),
