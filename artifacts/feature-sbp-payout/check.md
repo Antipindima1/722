@@ -120,3 +120,13 @@ DDL обновлён: в `payout_status` добавлен `ERROR`; прогон 
 Повторный рендер: HTTP 200, 48 442 байта, проверки содержимого — 7 из 7 (PAYING,
 тот же Idempotency-Key, DECLINED, FNS_UNAVAILABLE, SBP_REJECTED, DONE_WITH_ERRORS,
 PayoutRetryScheduled).
+
+## 8. Исправления по ревью v2
+
+| Замечание | Что сделано |
+|---|---|
+| 🟡 S-07 `FNS_UNAVAILABLE` не в enum | значение добавлено в `PayoutFailedPayload.reason`, причина перечислена в `AS-21` |
+| 🟡 S-08 бизнес-отказ без события | `PayoutFailed` публикуется и при `DECLINED`: шаги 22 (утрата статуса) и 31 (отказ СБП); смысл события уточнён в `AS-21` |
+
+Сценарий перегенерирован, нумерация 1–51. Проверка: рендер HTTP 200, содержимое — 9 из 9,
+AsyncAPI CLI — 0 ошибок.
