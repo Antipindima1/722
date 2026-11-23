@@ -1,0 +1,194 @@
+asyncapi: 2.6.0
+id: urn:vyplatypro:payout-events
+defaultContentType: application/json
+info:
+  title: ВыплатыПро — события выплат (Ф2)
+  version: 1.0.0
+  description: |
+    События контура выплат по допущению AS-21. Ключ сообщения — payoutId: события одной выплаты
+    идут в одной партиции и по порядку. Повторы доставки — по AS-17 (минуты), после исчерпания —
+    DLQ.
+  contact:
+    name: ВыплатыПро
+    url: https://vyplatypro.example
+servers:
+  production:
+    url: broker.vyplatypro.example:9092
+    protocol: kafka
+    description: Продуктивный брокер событий
+tags:
+  - name: payouts
+    description: События выплат
+channels:
+  payout.sent:
+    description: Выплата отправлена в СБП и подтверждена. Публикует сервис выплат, читает сервис уведомлений.
+    publish:
+      operationId: publishPayoutSent
+      summary: Публикация успешной выплаты
+      x-retry-policy:
+        maxAttempts: 3
+        backoffMinutes: [1, 5, 15]
+        dlqChannel: payout.events.dlq
+        source: AS-17
+      message:
+        $ref: '#/components/messages/PayoutSent'
+  payout.failed:
+    description: Выплата не выполнена после исчерпания попыток. Публикует сервис выплат, читают уведомления и поддержка.
+    publish:
+      operationId: publishPayoutFailed
+      summary: Публикация неуспешной выплаты
+      x-retry-policy:
+        maxAttempts: 3
+        backoffMinutes: [1, 5, 15]
+        dlqChannel: payout.events.dlq
+        source: AS-17
+      message:
+        $ref: '#/components/messages/PayoutFailed'
+  payout.retry-scheduled:
+    description: Назначена повторная попытка выплаты. Публикует сервис выплат, читает он же для учёта попыток.
+    publish:
+      operationId: publishPayoutRetryScheduled
+      summary: Публикация запланированной попытки
+      message:
+        $ref: '#/components/messages/PayoutRetryScheduled'
+  payout.events.dlq:
+    description: Недоставленные события выплат после исчерпания попыток. Читается вручную для разбора.
+    publish:
+      operationId: publishPayoutEventToDlq
+      summary: Публикация в очередь недоставленных
+      message:
+        $ref: '#/components/messages/DlqEnvelope'
+components:
+  messages:
+    PayoutSent:
+      name: PayoutSent
+      title: Выплата исполнена
+      summary: СБП подтвердил перевод
+      contentType: application/json
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: payout_id
+      payload:
+        $ref: '#/components/schemas/PayoutSentPayload'
+    PayoutFailed:
+      name: PayoutFailed
+      title: Выплата не выполнена
+      summary: Попытки исчерпаны, нужен ручной разбор
+      contentType: application/json
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: payout_id
+      payload:
+        $ref: '#/components/schemas/PayoutFailedPayload'
+    PayoutRetryScheduled:
+      name: PayoutRetryScheduled
+      title: Назначена повторная попытка
+      summary: Сервис выплат планирует следующую попытку
+      contentType: application/json
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: payout_id
+      payload:
+        $ref: '#/components/schemas/PayoutRetryPayload'
+    DlqEnvelope:
+      name: DlqEnvelope
+      title: Недоставленное событие
+      summary: Исходное сообщение вместе с причиной недоставки
+      contentType: application/json
+      bindings:
+        kafka:
+          key:
+            type: string
+            description: payout_id
+      payload:
+        $ref: '#/components/schemas/DlqEnvelopePayload'
+  schemas:
+    EventEnvelope:
+      type: object
+      required: [eventId, eventType, occurredAt, payoutId, registryId]
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        payoutId:
+          type: string
+          format: uuid
+          description: Ключ партиционирования
+        registryId:
+          type: string
+          format: uuid
+    PayoutSentPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [rowId, amount, sbpRef]
+          properties:
+            rowId:
+              type: string
+              format: uuid
+            amount:
+              type: string
+              pattern: '^\d+\.\d{2}$'
+            sbpRef:
+              type: string
+    PayoutFailedPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [rowId, attempts, reason]
+          properties:
+            rowId:
+              type: string
+              format: uuid
+            attempts:
+              type: integer
+              minimum: 1
+              maximum: 3
+            reason:
+              type: string
+              enum: [SBP_REJECTED, SBP_TIMEOUT, CONTRACTOR_STATUS_LOST, INTERNAL_ERROR]
+    PayoutRetryPayload:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelope'
+        - type: object
+          required: [rowId, attempt, nextAttemptAt]
+          properties:
+            rowId:
+              type: string
+              format: uuid
+            attempt:
+              type: integer
+              minimum: 1
+              maximum: 3
+            nextAttemptAt:
+              type: string
+              format: date-time
+    DlqEnvelopePayload:
+      type: object
+      required: [originalEvent, reason, failedAt]
+      properties:
+        originalEvent:
+          description: Исходное сообщение
+          oneOf:
+            - $ref: '#/components/schemas/PayoutSentPayload'
+            - $ref: '#/components/schemas/PayoutFailedPayload'
+            - $ref: '#/components/schemas/PayoutRetryPayload'
+        reason:
+          type: string
+        failedAt:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+          minimum: 1
