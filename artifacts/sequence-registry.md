@@ -1,13 +1,17 @@
 # Sequence — загрузка и проверка реестра (Ф1)
 
-- **Артефакт:** `artifacts/sequence-registry.md` (диаграмма в PlantUML)
+- **Артефакт:** `artifacts/sequence-registry.md` (PlantUML)
 - **Фича:** Ф1 — `SCRUM-2187`, истории `SCRUM-2189`, `SCRUM-2190`
-- **Проверка:** рендер в PlantUML (Kroki), сверка шагов с OpenAPI и правилами
+- **Проверка:** рендер PlantUML (Kroki), сверка шагов с OpenAPI и правилами
 
 ## Сценарий
 
-Загрузка файла, асинхронная проверка (включая проверку прошлых выплат), опрос статуса и
-разбор отклонённых строк. Отдельно показаны отказ хранилища и недоставка события.
+Загрузка файла, асинхронная проверка, опрос статуса, разбор отклонённых строк и повторная
+проверка после технического сбоя.
+
+Проверка «исполнитель не выплачен ранее» на этом шаге **не выполняется**: у только что созданных
+строк выплат быть не может, проверка всегда давала бы «нет». Защита от повторной выплаты —
+ключ `registry_id + row_id` в момент создания выплаты (Ф2, `CHK-07` в §2.2 базы знаний).
 
 ```plantuml
 @startuml
@@ -17,7 +21,6 @@ actor "Бухгалтер" as acc
 participant "Веб-интерфейс" as web
 participant "API Gateway" as api
 participant "Сервис реестров" as reg
-participant "Сервис выплат" as pay
 database "БД реестров" as db
 participant "Хранилище файлов" as s3
 queue "Очередь событий" as mq
@@ -26,94 +29,82 @@ acc -> web : 1 Выбрать файл реестра
 web -> api : 2 POST /registries {file, Idempotency-Key}
 api -> reg : 3 POST /registries {file, Idempotency-Key, userId}
 
-alt Файл и поля корректны
+alt Файл и лимиты в порядке
   reg -> db : 4 INSERT registry (status=UPLOADED, idempotency_key)
   reg -> s3 : 5 PUT file (object_key)
   reg -> db : 6 UPDATE registry (status=VALIDATING)
-  reg -> mq : 7 Kafka RegistryUploaded {registry_id}
+  reg -> mq : 7 событие о загрузке {registry_id}
   reg --> api : 8 202 Accepted {registry_id, status=VALIDATING}
   api --> web : 9 202 Accepted
   web --> acc : 10 Экран «Проверяется»
-else Формат или колонки неверны
-  reg --> api : 11 400 Bad Request {code=FORMAT_INVALID, message}
+else Формат или обязательные колонки неверны
+  reg --> api : 11 400 {code=FORMAT_INVALID}
   api --> web : 12 400
-  web --> acc : 13 Ошибка загрузки с причиной
-else Превышен лимит реестра
-  reg --> api : 14 409 Conflict {code=REGISTRY_LIMIT_EXCEEDED}
+  web --> acc : 13 Причина отказа
+else Лимит строк или суммы превышен
+  reg --> api : 14 409 {code=REGISTRY_LIMIT_EXCEEDED}
   api --> web : 15 409
   web --> acc : 16 Сообщение о лимите
 end
 
-== Асинхронная проверка ==
-mq -> reg : 17 RegistryUploaded {registry_id}
+== Проверка строк ==
+mq -> reg : 17 событие о загрузке {registry_id}
 reg -> s3 : 18 GET file (object_key)
 
 alt Файл недоступен в хранилище
   reg -> db : 19 UPDATE registry (status=VALIDATION_FAILED)
-  reg -> mq : 20 Kafka RegistryValidationFailed {registry_id, reason=FILE_UNAVAILABLE}
 else Файл получен
   loop По 200 строк
-    reg -> db : 21 INSERT rows (status=NEW, inn_hash)
-    reg -> pay : 22 POST /payouts/exists:batch {items[{registryId, rowId}]}
-    pay --> reg : 23 200 OK {results[{rowId, paid}]}
-    alt paid = true
-      reg -> db : 24 UPDATE row (status=REJECTED, reject_reason=ALREADY_PAID)
-    end
-    reg -> db : 25 UPDATE rows (status=VALIDATED / REJECTED, reject_reason)
+    reg -> db : 20 INSERT rows (status=NEW)
+    reg -> db : 21 UPDATE rows (status=VALIDATED / REJECTED, reject_reason)
   end
   alt Доля отклонённых больше 10%
-    reg -> db : 26 UPDATE registry (status=BLOCKED)
+    reg -> db : 22 UPDATE registry (status=BLOCKED)
   else Ошибок в пределах порога
-    reg -> db : 27 UPDATE registry (status=CHECKED)
+    reg -> db : 23 UPDATE registry (status=CHECKED)
   end
-  reg -> mq : 28 Kafka RegistryChecked {registry_id, status, rejected_count}
+  reg -> mq : 24 событие о результате проверки {registry_id, status, rejected_count}
 end
 
-== Доставка событий ==
 alt Брокер недоступен
   loop 3 попытки: 1 с, 5 с, 15 с
-    reg -> mq : 29 Повторная публикация события
+    reg -> mq : 25 повторная публикация
   end
-  reg -> mq : 30 Публикация в DLQ {registry_id, reason=BROKER_UNAVAILABLE}
+  reg -> mq : 26 публикация в DLQ {registry_id, reason}
 end
 
 == Опрос статуса ==
-acc -> web : 31 Обновить экран
-web -> api : 32 GET /registries/{id} {If-None-Match: ETag}
-api -> reg : 33 GET /registries/{id}
-reg -> db : 34 SELECT registry (status, counts, updated_at)
-alt ETag не изменился
-  reg --> api : 35 304 Not Modified
+acc -> web : 27 Обновить экран
+web -> api : 28 GET /registries/{id} {If-None-Match: ETag}
+api -> reg : 29 GET /registries/{id}
+reg -> db : 30 SELECT registry (status, counts, updated_at)
+alt ETag совпал
+  reg --> api : 31 304 Not Modified
 else Состояние изменилось
-  reg --> api : 36 200 OK {status, row_count, rejected_count, ETag}
+  reg --> api : 32 200 OK {status, counts, ETag}
 end
-api --> web : 37 Ответ
-web --> acc : 38 Статус и счётчики
+api --> web : 33 Ответ
+web --> acc : 34 Статус и счётчики
 
 == Разбор отклонённых строк ==
-acc -> web : 39 Открыть отклонённые строки
-web -> api : 40 GET /registries/{id}/rows {status=REJECTED, limit=50, offset=0}
-api -> reg : 41 GET /registries/{id}/rows
-reg -> db : 42 SELECT rows (reject_reason, amount, inn_masked)
-reg --> api : 43 200 OK {items[{rowId, rejectReason, rejectMessage}], total}
-api --> web : 44 Ответ
-web --> acc : 45 Список строк с причинами отказа
+acc -> web : 35 Открыть отклонённые строки
+web -> api : 36 GET /registries/{id}/rows {status=REJECTED, limit=50, offset=0}
+api -> reg : 37 GET /registries/{id}/rows
+reg -> db : 38 SELECT rows (reject_reason, amount, inn_masked)
+reg --> api : 39 200 OK {items[{rowId, rejectReason, rejectMessage}], total}
+api --> web : 40 Ответ
+web --> acc : 41 Список причин отказа
 
-== Повторная проверка после технического сбоя ==
-acc -> web : 46 Отправить реестр на повторную проверку
-web -> api : 47 POST /registries/{id}/revalidation {Idempotency-Key}
-api -> reg : 48 POST /registries/{id}/revalidation
-
-alt Реестр не в статусе VALIDATION_FAILED
-  reg --> api : 49 409 Conflict {code=REGISTRY_NOT_VALIDATION_FAILED}
-  api --> web : 50 409
-  web --> acc : 51 Повторная проверка недоступна
-else Реестр в статусе VALIDATION_FAILED
-  reg -> db : 52 UPDATE registry (status=VALIDATING)
-  reg -> mq : 53 Kafka RegistryRevalidationRequested {registry_id, reason=FILE_AVAILABLE_AGAIN}
-  reg --> api : 54 202 Accepted {registry_id, status=VALIDATING}
-  api --> web : 55 202
-  web --> acc : 56 Реестр снова проверяется
+== Повторная проверка после сбоя ==
+acc -> web : 42 Отправить на повторную проверку
+web -> api : 43 POST /registries/{id}/revalidation {Idempotency-Key}
+api -> reg : 44 POST /registries/{id}/revalidation
+alt Статус не VALIDATION_FAILED
+  reg --> api : 45 409 {code=REGISTRY_NOT_VALIDATION_FAILED}
+else Реестр в VALIDATION_FAILED
+  reg -> db : 46 UPDATE registry (status=VALIDATING)
+  reg -> mq : 47 событие запроса повторной проверки {registry_id}
+  reg --> api : 48 202 Accepted {status=VALIDATING}
 end
 
 @enduml
@@ -125,25 +116,22 @@ end
 |---|---|---|
 | 2, 3 | `POST /registries` | 202 |
 | 11–16 | `POST /registries` (ошибки) | 400, 409 |
-| 22, 23 | `POST /payouts/exists:batch` | 200 |
-| 32–38 | `GET /registries/{registryId}` | 200, 304 |
-| 40–45 | `GET /registries/{registryId}/rows` | 200 |
-| 47–56 | `POST /registries/{registryId}/revalidation` | 202, 409 |
+| 28–34 | `GET /registries/{registryId}` | 200, 304 |
+| 36–41 | `GET /registries/{registryId}/rows` | 200 |
+| 43–48 | `POST /registries/{registryId}/revalidation` | 202, 409 |
 
 ## Соответствие правилам
 
 | Правило | Где на диаграмме |
 |---|---|
-| `CHK-01`, `CHK-02` (формат и обязательные колонки) | ветка «Формат или колонки неверны» |
-| `CHK-03…CHK-06` (ИНН, дубли, сумма, телефон) | шаги 21, 25, `reject_reason` |
-| **`CHK-07` (нет прошлой выплаты)** | **шаги 22–24: пакетный запрос в `Сервис выплат` (до 500 строк), причина `ALREADY_PAID`** |
-| `AS-02` (лимиты) | ветка «Превышен лимит реестра» |
-| `AS-13` (идемпотентность) | шаг 4 |
-| `AS-14` (блокировка при >10% ошибок) | шаг 26 |
-| `O-06`, `AS-15` (маскирование ПДн) | шаг 42 |
-| **`AS-20` (ретраи событий, DLQ)** | **блок «Доставка событий»: 3 попытки 1/5/15 с, затем публикация в DLQ** |
-| Отказ хранилища | ветка «Файл недоступен» → `VALIDATION_FAILED` + событие об ошибке |
-| **`AS-19` (технический сбой ≠ блокировка по данным)** | **ветка «Файл недоступен» и блок «Повторная проверка»: `VALIDATION_FAILED → VALIDATING`** |
+| `CHK-01`, `CHK-02` (формат и колонки) | ветка «Формат или колонки неверны» |
+| `CHK-03…CHK-06` (ИНН, дубли, сумма, телефон) | шаги 20–21, `reject_reason` |
+| `AS-02` (лимиты в строке и сумме) | ветка «Лимит строк или суммы превышен» |
+| `AS-13` (идемпотентность загрузки) | шаг 4 |
+| `AS-14` (блокировка при >10% ошибок) | шаг 22 |
+| `O-06`, `AS-15` (маскирование ПДн) | шаг 38 |
+| `AS-20` (ретраи событий 1/5/15 с, DLQ) | блок «Брокер недоступен» |
+| `CHK-07` (нет прошлой выплаты) | **не на этом шаге**: выполняется при создании выплаты (Ф2) |
 
 ## Что не показано
 
