@@ -1,6 +1,6 @@
 # Проверка артефактов Ф1: OpenAPI + Sequence
 
-- **Артефакты:** `artifacts/f1-registry/openapi-registry.yaml`, `artifacts/f1-registry/sequence-registry.md`
+- **Артефакты:** `artifacts/feature-registry-check/openapi-registry.yaml`, `artifacts/feature-registry-check/sequence-registry.md`
 - **Инструменты из таблицы требований:** Spectral (OpenAPI), рендер PlantUML (Sequence)
 - **Дата:** 2026-11-17
 
@@ -26,7 +26,7 @@
 ## 2. Прогон Spectral
 
 ```
-node pnpm.mjs dlx @stoplight/spectral-cli@6 lint artifacts/f1-registry/openapi-registry.yaml \
+node pnpm.mjs dlx @stoplight/spectral-cli@6 lint artifacts/feature-registry-check/openapi-registry.yaml \
      --ruleset .spectral.yaml --format json
 ```
 
@@ -77,12 +77,12 @@ POST https://kroki.io/plantuml/svg  (тело — блок ```plantuml``` из s
 
 ```bash
 export PATH="<node-bin>:$PATH"
-node <pnpm.mjs> dlx @stoplight/spectral-cli@6 lint artifacts/f1-registry/openapi-registry.yaml \
+node <pnpm.mjs> dlx @stoplight/spectral-cli@6 lint artifacts/feature-registry-check/openapi-registry.yaml \
      --ruleset .spectral.yaml
 
-sed -n '/```plantuml/,/```/p' artifacts/f1-registry/sequence-registry.md | sed '1d;$d' > /tmp/seq.puml
+sed -n '/```plantuml/,/```/p' artifacts/feature-registry-check/sequence-registry.md | sed '1d;$d' > /tmp/seq.puml
 curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
-     --data-binary @/tmp/seq.puml -o artifacts/f1-registry/sequence-registry.svg
+     --data-binary @/tmp/seq.puml -o artifacts/feature-registry-check/sequence-registry.svg
 ```
 
 ## 9. Правки по замечаниям ревью
@@ -188,11 +188,11 @@ curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
 Вывод Spectral сохраняется в репозиторий после каждого прогона, командой с `--output`:
 
 ```
-spectral lint artifacts/f1-registry/openapi-registry.yaml --ruleset .spectral.yaml \
-         --format json --output artifacts/f1-registry/spectral-registry.json
+spectral lint artifacts/feature-registry-check/openapi-registry.yaml --ruleset .spectral.yaml \
+         --format json --output artifacts/feature-registry-check/spectral-registry.json
 ```
 
-Файл `artifacts/f1-registry/spectral-registry.json` содержит только JSON результата (при отсутствии
+Файл `artifacts/feature-registry-check/spectral-registry.json` содержит только JSON результата (при отсутствии
 ошибок — `[]`), без служебных строк сборщика. Последний прогон: 2026-11-22, код возврата 0,
 ошибок 0.
 
@@ -210,7 +210,7 @@ spectral lint artifacts/f1-registry/openapi-registry.yaml --ruleset .spectral.ya
 Найдено при прогоне: в спецификации были только 5000 строк, суммы отсутствовали.
 Исправлено: в описание загрузки добавлены все три лимита и код ошибки.
 
-Повторный прогон Spectral: код возврата 0, ошибок 0 (`artifacts/f1-registry/spectral-registry.json`).
+Повторный прогон Spectral: код возврата 0, ошибок 0 (`artifacts/feature-registry-check/spectral-registry.json`).
 
 ## 17. Ревизия проверки «уже выплачено» (CHK-07)
 
@@ -226,5 +226,14 @@ spectral lint artifacts/f1-registry/openapi-registry.yaml --ruleset .spectral.ya
 | Из DDL и модели удалена причина `ALREADY_PAID` | `schema-registry.sql`, `schema-online.sql`, `erd-registry.md` |
 | Из Sequence убраны шаги обращения к сервису выплат | `sequence-registry.md` |
 
-Проверка после правок: Spectral — код 0, ошибок 0 (`artifacts/f1-registry/spectral-registry.json`);
+Проверка после правок: Spectral — код 0, ошибок 0 (`artifacts/feature-registry-check/spectral-registry.json`);
 рендер Sequence — HTTP 200, `payouts/exists` и `ALREADY_PAID` в диаграмме отсутствуют.
+
+## 12. Исправления по итоговому ревью
+
+| Замечание | Что сделано |
+|---|---|
+| S-11 `403` не у всех операций | добавлен `403` операциям `GET /registries`, `GET /registries/{registryId}/report` |
+| S-12 нет `400` на пагинацию | добавлен `400` операциям `GET /registries`, `GET /registries/{registryId}/rows`, `GET /registries/{registryId}/report`; код ошибки — `INVALID_QUERY_PARAM` |
+
+Повторный прогон Spectral: код 0, ошибок 0.
