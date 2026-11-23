@@ -8,9 +8,9 @@
 ## Как выполнялось
 
 1. Соединение с PostgreSQL открыто в DBeaver.
-2. Выполнен `artifacts/schema-reset.sql` — снята прошлая схема.
-3. Выполнен `artifacts/schema-registry.sql` целиком через **Alt+X (Execute SQL Script)**.
-4. Выполнен `artifacts/schema-verify.sql` — самопроверка.
+2. Выполнен `artifacts/f1-registry/schema-reset.sql` — снята прошлая схема.
+3. Выполнен `artifacts/f1-registry/schema-registry.sql` целиком через **Alt+X (Execute SQL Script)**.
+4. Выполнен `artifacts/f1-registry/schema-verify.sql` — самопроверка.
 
 ## Почему Alt+X, а не Ctrl+Enter
 
