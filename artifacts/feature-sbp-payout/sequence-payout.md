@@ -7,13 +7,12 @@
 ## Сценарий
 
 Запуск пакета, проверки перед выплатой, отправка в СБП с повторами, частичный успех, разбор
-ошибок и повторный запуск только по проблемным строкам.
+ошибок и **полный повторный цикл** по проблемным строкам.
 
-Все повторные вызовы СБП идут с **тем же** `Idempotency-Key`, что и первая попытка: иначе
-потерянный ответ превращается во второй перевод (`AS-13`, `CHK-11`).
+Публикации в очередь — асинхронные (`->>`); запросы к ФНС, СБП и банку — синхронные (`->`).
 
-Событие `PayoutFailed` публикуется и при техническом отказе, и при бизнес-отказе (утрата
-статуса, отказ СБП): потребители должны узнать о неуспешной выплате в любом случае (`AS-21`).
+Все повторные вызовы СБП идут с **тем же** `Idempotency-Key`, что и первая попытка (`AS-13`).
+Событие `PayoutFailed` публикуется и при техническом отказе, и при бизнес-причине (`AS-21`).
 
 ```plantuml
 @startuml
@@ -53,63 +52,81 @@ end
 == Обработка строк ==
 loop По каждой строке реестра
   pay -> fns : 15 запрос статуса самозанятого {inn}
-  alt ФНС не ответила
-    loop 3 попытки: 1 / 5 / 15 минут
-      pay -> fns : 16 повтор запроса статуса
-    end
-    pay -> db : 17 UPDATE payout (status=ERROR, reason=FNS_UNAVAILABLE)
-    pay -> mq : 18 событие PayoutFailed {payoutId, reason=FNS_UNAVAILABLE}
-    pay -> mq : 19 публикация в DLQ {payoutId}
-  else Статус утрачен
-    fns --> pay : 20 {status=LOST}
-    pay -> db : 21 UPDATE payout (status=DECLINED, reason=CONTRACTOR_STATUS_LOST)
-    pay -> mq : 22 событие PayoutFailed {payoutId, reason=CONTRACTOR_STATUS_LOST}
-  else Статус подтверждён
-    fns --> pay : 23 {status=ACTIVE}
-    pay -> db : 24 UPDATE payout (status=SENT_TO_SBP, attempts=1)
-    pay -> sbp : 25 POST /payments {payoutId, phone, amount, Idempotency-Key}
-    alt СБП подтвердил перевод
-      sbp --> pay : 26 {status=EXECUTED, sbpRef}
-      pay -> db : 27 UPDATE payout (status=EXECUTED, sbp_ref)
-      pay -> mq : 28 событие PayoutSent {payoutId, amount}
-    else СБП отклонил перевод (бизнес-причина)
-      sbp --> pay : 29 {status=DECLINED, reason=SBP_REJECTED}
-      pay -> db : 30 UPDATE payout (status=DECLINED, error_reason)
-      pay -> mq : 31 событие PayoutFailed {payoutId, reason=SBP_REJECTED}
-    else Техническая ошибка
-      sbp --> pay : 32 {error}
-      loop 3 попытки: 1 / 5 / 15 минут
-        pay -> sbp : 33 повтор POST /payments {тот же Idempotency-Key}
-        pay -> mq : 34 событие PayoutRetryScheduled {payoutId, attempt}
-      end
-      alt Попытки исчерпаны
-        pay -> db : 35 UPDATE payout (status=ERROR, reason)
-        pay -> mq : 36 событие PayoutFailed {payoutId, reason}
-        pay -> mq : 37 публикация в DLQ {payoutId}
+  loop до 3 попыток: 1 / 5 / 15 минут
+    pay -> fns : 16 повтор запроса статуса
+    fns --> pay : 17 {status} — ответила со второй попытки
+  end
+
+  alt Ответа нет ни на одной попытке
+    pay -> db : 18 UPDATE payout (status=ERROR, reason=FNS_UNAVAILABLE)
+    pay ->> mq : 19 событие PayoutFailed {payoutId, reason=FNS_UNAVAILABLE}
+    pay ->> mq : 20 публикация в DLQ {payoutId}
+  else Статус получен
+    alt Статус утрачен
+      fns --> pay : 21 {status=LOST}
+      pay -> db : 22 UPDATE payout (status=DECLINED, reason=CONTRACTOR_STATUS_LOST)
+      pay ->> mq : 23 событие PayoutFailed {payoutId, reason=CONTRACTOR_STATUS_LOST}
+    else Статус подтверждён
+      fns --> pay : 24 {status=ACTIVE}
+      pay -> db : 25 UPDATE payout (status=SENT_TO_SBP, attempts=1)
+      pay -> sbp : 26 POST /payments {payoutId, phone, amount, Idempotency-Key}
+      alt СБП подтвердил перевод
+        sbp --> pay : 27 {status=EXECUTED, sbpRef}
+        pay -> db : 28 UPDATE payout (status=EXECUTED, sbp_ref)
+        pay ->> mq : 29 событие PayoutSent {payoutId, amount}
+      else СБП отклонил перевод (бизнес-причина)
+        sbp --> pay : 30 {status=DECLINED, reason=SBP_REJECTED}
+        pay -> db : 31 UPDATE payout (status=DECLINED, error_reason)
+        pay ->> mq : 32 событие PayoutFailed {payoutId, reason=SBP_REJECTED}
+      else Техническая ошибка
+        sbp --> pay : 33 {error}
+        loop 3 попытки: 1 / 5 / 15 минут
+          pay -> sbp : 34 повтор POST /payments {тот же Idempotency-Key}
+          pay ->> mq : 35 событие PayoutRetryScheduled {payoutId, attempt}
+        end
+        alt Попытки исчерпаны
+          pay -> db : 36 UPDATE payout (status=ERROR, reason)
+          pay ->> mq : 37 событие PayoutFailed {payoutId, reason}
+          pay ->> mq : 38 публикация в DLQ {payoutId}
+        end
       end
     end
   end
 end
 
-pay -> db : 38 UPDATE registry (status=DONE / DONE_WITH_ERRORS)
+pay -> db : 39 UPDATE registry (status=DONE / DONE_WITH_ERRORS)
 
-== Отчёт и повторный запуск ==
-acc -> web : 39 Открыть результаты выплаты
-web -> api : 40 GET /registries/{id}/payouts {status, limit, offset}
-api -> pay : 41 GET /registries/{id}/payouts
-pay -> db : 42 SELECT payouts (status, attempts, error_reason)
-pay --> api : 43 200 {items, total}
-api --> web : 44 Ответ
-web --> acc : 45 Выплачено, ошибки с причиной, DLQ
+== Отчёт ==
+acc -> web : 40 Открыть результаты выплаты
+web -> api : 41 GET /registries/{id}/payouts {status, limit, offset}
+api -> pay : 42 GET /registries/{id}/payouts
+pay -> db : 43 SELECT payouts (status, attempts, error_reason)
+pay --> api : 44 200 {items, total}
+api --> web : 45 Ответ
+web --> acc : 46 Выплачено, ошибки с причиной, DLQ
 
-acc -> web : 46 Повторить по проблемным строкам
-web -> api : 47 POST /registries/{id}/payouts/retry {Idempotency-Key}
-api -> pay : 48 POST /retry
+== Повторный запуск по проблемным строкам ==
+acc -> web : 47 Повторить по проблемным строкам
+web -> api : 48 POST /registries/{id}/payouts/retry {Idempotency-Key}
+api -> pay : 49 POST /retry
+
 alt Нет выплат в статусе ERROR
-  pay --> api : 49 409 {code=RETRY_NOT_ALLOWED}
+  pay --> api : 50 409 {code=RETRY_NOT_ALLOWED}
 else Есть проблемные строки
-  pay -> db : 50 UPDATE payouts (status=CREATED) только для ERROR
-  pay --> api : 51 202 Accepted
+  pay -> bank : 51 повторно GET /balance (CHK-10)
+  bank --> pay : 52 {balance}
+  pay -> db : 53 повторно SELECT sum за сутки (CHK-12)
+  alt Средств или лимита недостаточно
+    pay --> api : 54 409 {code=INSUFFICIENT_FUNDS / DAILY_LIMIT_EXCEEDED}
+  else Условия выполнены
+    pay -> db : 55 UPDATE payouts (status=CREATED) только для ERROR
+    pay -> db : 56 UPDATE registry (status=PAYING)
+    pay --> api : 57 202 Accepted {retryBatchId}
+    loop По проблемным строкам — обработка запускается снова
+      pay -> fns : 58 запрос статуса самозанятого {inn}
+      pay -> sbp : 59 POST /payments {payoutId, phone, amount, Idempotency-Key}
+    end
+  end
 end
 
 @enduml
@@ -120,26 +137,26 @@ end
 | Шаги | Операция OpenAPI | Код |
 |---|---|---|
 | 2, 3 | `POST /registries/{registryId}/payouts` | 202, 409 |
-| 40–45 | `GET /registries/{registryId}/payouts` | 200 |
-| 47–51 | `POST /registries/{registryId}/payouts/retry` | 202, 409 |
+| 41–46 | `GET /registries/{registryId}/payouts` | 200 |
+| 48–57 | `POST /registries/{registryId}/payouts/retry` | 202, 409 |
 
 ## Соответствие правилам
 
 | Правило | Где на диаграмме |
 |---|---|
 | `CHK-09` (только «Проверен») | ветка «Реестр не в статусе CHECKED» |
-| `CHK-10` (средства на пакет) | шаги 5–7 |
-| `CHK-12` (суточный лимит компании) | шаги 8–9, сумма по компании за сутки |
-| `CHK-08`, `AS-05` (статус в ФНС перед каждой выплатой) | шаги 15–23 |
-| `CHK-07`, `CHK-11`, `AS-13` (идемпотентность) | уникальный `row_id`; шаги 25 и 33 — один и тот же `Idempotency-Key` |
-| `AS-17` (3 попытки 1/5/15 минут, DLQ) | шаги 16–19 (ФНС), 33–37 (СБП) |
-| `AS-06` (частичный успех) | строки обрабатываются независимо, шаг 38 |
-| `AS-21` (события выплат) | шаги 18, 22, 28, 31, 34, 36 |
-| §4.1 (реестр «В выплате») | шаг 11: `PAYING` перед обработкой |
-| Бизнес-отказ ≠ тех. ошибка | шаги 21–22 и 29–31 (`DECLINED`, без повторов) против 32–37 (`ERROR`, DLQ) |
-| `SCRUM-2192` (отчёт, повтор по проблемным) | шаги 39–51 |
+| `CHK-10` (средства на пакет) | шаги 5–7; повторно 51–54 |
+| `CHK-12` (суточный лимит компании) | шаги 8–9; повторно 53–54 |
+| `CHK-08`, `AS-05` (статус в ФНС перед каждой выплатой) | шаги 15–24, повторно 58 |
+| `CHK-07`, `CHK-11`, `AS-13` (идемпотентность) | уникальный `row_id`; шаги 26, 34, 59 — тот же `Idempotency-Key` |
+| `AS-17` (3 попытки 1/5/15 минут, DLQ) | шаги 16–20 (ФНС), 33–38 (СБП) |
+| `AS-06` (частичный успех) | независимая обработка строк, шаг 39 |
+| `AS-21` (события выплат) | шаги 19, 23, 29, 32, 35, 37 |
+| §4.1 (реестр «В выплате») | шаг 11 и повторно 56: `PAYING` |
+| Повтор = полный цикл | шаги 51–59: средства, лимит, `PAYING`, обработка строк заново |
+| Бизнес-отказ ≠ тех. ошибка | 22–23 и 30–32 (`DECLINED`, без повторов) против 33–38 (`ERROR`, DLQ) |
 
 ## Что не показано
 
-- Получение чека ФНС — вне выбранных фич (`O-05`, `AS-07`), обязательное следствие выплаты.
+- Получение чека ФНС — вне выбранных фич (`O-05`, `AS-07`).
 - Возвраты и аннулирование чека — вне фич (`AS-08`).
