@@ -1,6 +1,6 @@
 # Sequence — загрузка и проверка реестра (Ф1)
 
-- **Артефакт:** `artifacts/f1-registry/sequence-registry.md` (PlantUML)
+- **Артефакт:** `artifacts/feature-registry-check/sequence-registry.md` (PlantUML)
 - **Фича:** Ф1 — `SCRUM-2187`, истории `SCRUM-2189`, `SCRUM-2190`
 - **Проверка:** рендер PlantUML (Kroki), сверка шагов с OpenAPI и правилами
 
@@ -33,7 +33,7 @@ alt Файл и лимиты в порядке
   reg -> db : 4 INSERT registry (status=UPLOADED, idempotency_key)
   reg -> s3 : 5 PUT file (object_key)
   reg -> db : 6 UPDATE registry (status=VALIDATING)
-  reg -> mq : 7 событие о загрузке {registry_id}
+  reg -> mq : 7 RegistryUploaded {registry_id}
   reg --> api : 8 202 Accepted {registry_id, status=VALIDATING}
   api --> web : 9 202 Accepted
   web --> acc : 10 Экран «Проверяется»
@@ -48,11 +48,12 @@ else Лимит строк или суммы превышен
 end
 
 == Проверка строк ==
-mq -> reg : 17 событие о загрузке {registry_id}
+mq -> reg : 17 RegistryUploaded {registry_id}
 reg -> s3 : 18 GET file (object_key)
 
 alt Файл недоступен в хранилище
   reg -> db : 19 UPDATE registry (status=VALIDATION_FAILED)
+  reg -> mq : 19a RegistryValidationFailed {registry_id, reason=FILE_UNAVAILABLE}
 else Файл получен
   loop По 200 строк
     reg -> db : 20 INSERT rows (status=NEW)
@@ -63,12 +64,12 @@ else Файл получен
   else Ошибок в пределах порога
     reg -> db : 23 UPDATE registry (status=CHECKED)
   end
-  reg -> mq : 24 событие о результате проверки {registry_id, status, rejected_count}
+  reg -> mq : 24 RegistryChecked {registry_id, status, rejected_count}
 end
 
 alt Брокер недоступен
   loop 3 попытки: 1 с, 5 с, 15 с
-    reg -> mq : 25 повторная публикация
+    reg -> mq : 25 повторная публикация RegistryChecked
   end
   reg -> mq : 26 публикация в DLQ {registry_id, reason}
 end
@@ -103,7 +104,7 @@ alt Статус не VALIDATION_FAILED
   reg --> api : 45 409 {code=REGISTRY_NOT_VALIDATION_FAILED}
 else Реестр в VALIDATION_FAILED
   reg -> db : 46 UPDATE registry (status=VALIDATING)
-  reg -> mq : 47 событие запроса повторной проверки {registry_id}
+  reg -> mq : 47 RegistryRevalidationRequested {registry_id}
   reg --> api : 48 202 Accepted {status=VALIDATING}
 end
 
@@ -128,9 +129,11 @@ end
 | `CHK-03…CHK-06` (ИНН, дубли, сумма, телефон) | шаги 20–21, `reject_reason` |
 | `AS-02` (лимиты в строке и сумме) | ветка «Лимит строк или суммы превышен» |
 | `AS-13` (идемпотентность загрузки) | шаг 4 |
+| События названы именами из AsyncAPI | шаги 7, 17, 19a, 24, 47 |
 | `AS-14` (блокировка при >10% ошибок) | шаг 22 |
 | `O-06`, `AS-15` (маскирование ПДн) | шаг 38 |
 | `AS-20` (ретраи событий 1/5/15 с, DLQ) | блок «Брокер недоступен» |
+| `AS-19`, `AS-21` (событие технического сбоя) | шаг 19a: `RegistryValidationFailed` |
 | `CHK-07` (нет прошлой выплаты) | **не на этом шаге**: выполняется при создании выплаты (Ф2) |
 
 ## Что не показано
