@@ -1,18 +1,7 @@
-File artifacts/f1-registry/asyncapi-registry.yaml is valid but has (itself and/or referenced documents) governance issues.
-Warnings 
-artifacts/f1-registry/asyncapi-registry.yaml
-   4:6   warning  asyncapi-info-license             Info object should have "license" object.                     info
-  11:11  warning  asyncapi-info-contact-properties  Contact object should have "name", "url" and "email" fields.  info.contact
- 101:22  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryUploaded
- 113:21  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryChecked
- 125:30  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryValidationFailed
- 137:35  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.RegistryRevalidationRequested
- 149:17  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.DlqEnvelope
-
-✖ 7 problems (0 errors, 7 warnings, 0 infos, 0 hints)
-
+﻿
+File artifacts/feature-registry-check/asyncapi-registry.yaml is valid but has (itself and/or referenced documents) governance issues.
 Information 
-artifacts/f1-registry/asyncapi-registry.yaml
+artifacts/feature-registry-check/asyncapi-registry.yaml
  1:11  information  asyncapi-latest-version  The latest version of AsyncAPi is not used. It is recommended update to the "3.1.0" version.  asyncapi
 
 ✖ 1 problem (0 errors, 0 warnings, 1 info, 0 hints)
