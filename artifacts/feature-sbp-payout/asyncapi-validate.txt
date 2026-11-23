@@ -1,0 +1,19 @@
+﻿
+File artifacts/feature-sbp-payout/asyncapi-payouts.yaml is valid but has (itself and/or referenced documents) governance issues.
+Warnings 
+artifacts/feature-sbp-payout/asyncapi-payouts.yaml
+  4:6   warning  asyncapi-info-license             Info object should have "license" object.                     info
+ 11:11  warning  asyncapi-info-contact-properties  Contact object should have "name", "url" and "email" fields.  info.contact
+ 63:16  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.PayoutSent
+ 75:18  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.PayoutFailed
+ 87:26  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.PayoutRetryScheduled
+ 99:17  warning  asyncapi2-message-messageId       Message should have a "messageId" field defined.              components.messages.DlqEnvelope
+
+✖ 6 problems (0 errors, 6 warnings, 0 infos, 0 hints)
+
+Information 
+artifacts/feature-sbp-payout/asyncapi-payouts.yaml
+ 1:11  information  asyncapi-latest-version  The latest version of AsyncAPi is not used. It is recommended update to the "3.1.0" version.  asyncapi
+
+✖ 1 problem (0 errors, 0 warnings, 1 info, 0 hints)
+
