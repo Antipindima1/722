@@ -1,5 +1,5 @@
 PGlite (PostgreSQL в WASM)
-Файл: ..\artifacts\schema-registry.sql
+Файл: ..\artifacts\feature-registry-check\schema-registry.sql
 
 DDL executed: OK
 tables: companies, contractors, payout_rows, payouts, processed_events, receipts, registries, validation_reports
