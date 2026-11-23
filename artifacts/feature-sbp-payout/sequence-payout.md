@@ -124,7 +124,13 @@ else Есть проблемные строки
     pay --> api : 57 202 Accepted {retryBatchId}
     loop По проблемным строкам — обработка запускается снова
       pay -> fns : 58 запрос статуса самозанятого {inn}
-      pay -> sbp : 59 POST /payments {payoutId, phone, amount, Idempotency-Key}
+      alt Статус утрачен
+        pay -> db : 58a UPDATE payout (status=DECLINED, reason=CONTRACTOR_STATUS_LOST)
+      else ФНС не ответила
+        pay -> db : 58b UPDATE payout (status=ERROR, reason=FNS_UNAVAILABLE)
+      else Статус подтверждён
+        pay -> sbp : 59 POST /payments {payoutId, phone, amount, Idempotency-Key}
+      end
     end
   end
 end
@@ -153,7 +159,7 @@ end
 | `AS-06` (частичный успех) | независимая обработка строк, шаг 39 |
 | `AS-21` (события выплат) | шаги 19, 23, 29, 32, 35, 37 |
 | §4.1 (реестр «В выплате») | шаг 11 и повторно 56: `PAYING` |
-| Повтор = полный цикл | шаги 51–59: средства, лимит, `PAYING`, обработка строк заново |
+| Повтор = полный цикл | шаги 51–59: средства, лимит, `PAYING`, обработка строк заново, те же ветки статуса ФНС (58a–59) |
 | Бизнес-отказ ≠ тех. ошибка | 22–23 и 30–32 (`DECLINED`, без повторов) против 33–38 (`ERROR`, DLQ) |
 
 ## Что не показано
