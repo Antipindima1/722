@@ -1,65 +1,91 @@
-asyncapi: 2.6.0
+asyncapi: 3.0.0
 id: urn:vyplatypro:payout-events
 defaultContentType: application/json
 info:
   title: ВыплатыПро — события выплат (Ф2)
-  version: 1.0.0
+  version: 2.0.0
   description: |
-    События контура выплат по допущению AS-21. Ключ сообщения — payoutId: события одной выплаты
-    идут в одной партиции и по порядку. Повторы доставки — по AS-17 (минуты), после исчерпания —
-    DLQ.
+    События контура выплат по допущению AS-21. Описано приложение «Сервис выплат»: он отправляет
+    все три события, поэтому используются операции send. Ключ сообщения — payoutId: события одной
+    выплаты идут по порядку. Доставка событий — отдельная политика (AS-20), она не связана с
+    повторами вызова СБП из AS-17.
   contact:
     name: ВыплатыПро
     url: https://vyplatypro.example
+  tags:
+    - name: payouts
+      description: События выплат
 servers:
   production:
-    url: broker.vyplatypro.example:9092
+    host: broker.vyplatypro.example:9092
     protocol: kafka
     description: Продуктивный брокер событий
-tags:
-  - name: payouts
-    description: События выплат
 channels:
-  payout.sent:
-    description: Выплата отправлена в СБП и подтверждена. Публикует сервис выплат, читает сервис уведомлений.
-    publish:
-      operationId: publishPayoutSent
-      summary: Публикация успешной выплаты
-      x-retry-policy:
-        maxAttempts: 3
-        backoffMinutes: [1, 5, 15]
-        dlqChannel: payout.events.dlq
-        source: AS-17
-      message:
+  payoutSent:
+    address: payout.sent
+    description: Выплата проведена, СБП подтвердил перевод.
+    messages:
+      PayoutSent:
         $ref: '#/components/messages/PayoutSent'
-  payout.failed:
+  payoutFailed:
+    address: payout.failed
     description: |
       Выплата не выполнена — после исчерпания попыток или по бизнес-причине (утрата статуса,
-      отказ СБП). Публикует сервис выплат, читают уведомления и поддержка.
-    publish:
-      operationId: publishPayoutFailed
-      summary: Публикация неуспешной выплаты
-      x-retry-policy:
-        maxAttempts: 3
-        backoffMinutes: [1, 5, 15]
-        dlqChannel: payout.events.dlq
-        source: AS-17
-      message:
+      отказ СБП).
+    messages:
+      PayoutFailed:
         $ref: '#/components/messages/PayoutFailed'
-  payout.retry-scheduled:
-    description: Назначена повторная попытка выплаты. Публикует сервис выплат, читает он же для учёта попыток.
-    publish:
-      operationId: publishPayoutRetryScheduled
-      summary: Публикация запланированной попытки
-      message:
+  payoutRetryScheduled:
+    address: payout.retry-scheduled
+    description: Назначена повторная попытка выплаты.
+    messages:
+      PayoutRetryScheduled:
         $ref: '#/components/messages/PayoutRetryScheduled'
-  payout.events.dlq:
-    description: Недоставленные события выплат после исчерпания попыток. Читается вручную для разбора.
-    publish:
-      operationId: publishPayoutEventToDlq
-      summary: Публикация в очередь недоставленных
-      message:
+  payoutDlq:
+    address: payout.events.dlq
+    description: Недоставленные события выплат после исчерпания попыток доставки.
+    messages:
+      DlqEnvelope:
         $ref: '#/components/messages/DlqEnvelope'
+operations:
+  sendPayoutSent:
+    action: send
+    summary: Сервис выплат сообщает об успешной выплате
+    channel:
+      $ref: '#/channels/payoutSent'
+    messages:
+      - $ref: '#/channels/payoutSent/messages/PayoutSent'
+    x-delivery-policy:
+      maxAttempts: 3
+      backoffSeconds: [1, 5, 15]
+      dlqChannel: payoutDlq
+      source: AS-20
+  sendPayoutFailed:
+    action: send
+    summary: Сервис выплат сообщает о неуспешной выплате
+    channel:
+      $ref: '#/channels/payoutFailed'
+    messages:
+      - $ref: '#/channels/payoutFailed/messages/PayoutFailed'
+    x-delivery-policy:
+      maxAttempts: 3
+      backoffSeconds: [1, 5, 15]
+      dlqChannel: payoutDlq
+      source: AS-20
+  sendPayoutRetryScheduled:
+    action: send
+    summary: Сервис выплат сообщает о назначенной попытке
+    channel:
+      $ref: '#/channels/payoutRetryScheduled'
+    messages:
+      - $ref: '#/channels/payoutRetryScheduled/messages/PayoutRetryScheduled'
+  sendPayoutEventToDlq:
+    action: send
+    summary: Публикация недоставленного события в DLQ
+    channel:
+      $ref: '#/channels/payoutDlq'
+    messages:
+      - $ref: '#/channels/payoutDlq/messages/DlqEnvelope'
 components:
   messages:
     PayoutSent:
@@ -77,7 +103,7 @@ components:
     PayoutFailed:
       name: PayoutFailed
       title: Выплата не выполнена
-      summary: Попытки исчерпаны, нужен ручной разбор
+      summary: Технический отказ или бизнес-причина
       contentType: application/json
       bindings:
         kafka:
@@ -148,14 +174,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
         - type: object
-          required: [rowId, attempts, reason]
+          required: [rowId, reason]
           properties:
             rowId:
               type: string
               format: uuid
             attempts:
               type: integer
-              minimum: 1
+              minimum: 0
               maximum: 3
             reason:
               type: string
