@@ -21,63 +21,75 @@ else Средств на пакет недостаточно
   pay -> bank : 5 GET /balance
   bank --> pay : 6 {balance}
   pay --> api : 7 409 {code=INSUFFICIENT_FUNDS}
-else Суточный лимит превышен
-  pay -> db : 8 SELECT sum(amount) за сутки
+else Суточный лимит компании превышен
+  pay -> db : 8 SELECT sum(p.amount) за сутки по компании (payouts join registries)
   pay --> api : 9 409 {code=DAILY_LIMIT_EXCEEDED}
 else Условия выполнены
   pay -> db : 10 INSERT payouts (status=CREATED)
-  pay --> api : 11 202 Accepted {batchId, payoutCount}
-  api --> web : 12 202
-  web --> acc : 13 Экран «В выплате»
+  pay -> db : 11 UPDATE registry (status=PAYING)
+  pay --> api : 12 202 Accepted {batchId, payoutCount}
+  api --> web : 13 202
+  web --> acc : 14 Экран «В выплате»
 end
 
 == Обработка строк ==
 loop По каждой строке реестра
-  pay -> fns : 14 запрос статуса самозанятого {inn}
-  fns --> pay : 15 {status}
-  alt Статус утрачен
-    pay -> db : 16 UPDATE payout (status=DECLINED, reason=CONTRACTOR_STATUS_LOST)
+  pay -> fns : 15 запрос статуса самозанятого {inn}
+  alt ФНС не ответила
+    loop 3 попытки: 1 / 5 / 15 минут
+      pay -> fns : 16 повтор запроса статуса
+    end
+    pay -> db : 17 UPDATE payout (status=ERROR, reason=FNS_UNAVAILABLE)
+    pay -> mq : 18 событие PayoutFailed {payoutId, reason}
+    pay -> mq : 19 публикация в DLQ {payoutId}
+  else Статус утрачен
+    fns --> pay : 20 {status=LOST}
+    pay -> db : 21 UPDATE payout (status=DECLINED, reason=CONTRACTOR_STATUS_LOST)
   else Статус подтверждён
-    pay -> db : 17 UPDATE payout (status=SENT_TO_SBP, attempts=1)
-    pay -> sbp : 18 POST /payments {payoutId, phone, amount, Idempotency-Key}
+    fns --> pay : 22 {status=ACTIVE}
+    pay -> db : 23 UPDATE payout (status=SENT_TO_SBP, attempts=1)
+    pay -> sbp : 24 POST /payments {payoutId, phone, amount, Idempotency-Key}
     alt СБП подтвердил перевод
-      sbp --> pay : 19 {status=EXECUTED, sbpRef}
-      pay -> db : 20 UPDATE payout (status=EXECUTED, sbp_ref)
-      pay -> mq : 21 событие PayoutSent {payoutId, amount}
+      sbp --> pay : 25 {status=EXECUTED, sbpRef}
+      pay -> db : 26 UPDATE payout (status=EXECUTED, sbp_ref)
+      pay -> mq : 27 событие PayoutSent {payoutId, amount}
+    else СБП отклонил перевод (бизнес-причина)
+      sbp --> pay : 28 {status=DECLINED, reason=SBP_REJECTED}
+      pay -> db : 29 UPDATE payout (status=DECLINED, error_reason)
     else Техническая ошибка
-      sbp --> pay : 22 {error}
+      sbp --> pay : 30 {error}
       loop 3 попытки: 1 / 5 / 15 минут
-        pay -> sbp : 23 повтор POST /payments
-        pay -> mq : 24 событие PayoutRetryScheduled {payoutId, attempt}
+        pay -> sbp : 31 повтор POST /payments {тот же Idempotency-Key}
+        pay -> mq : 32 событие PayoutRetryScheduled {payoutId, attempt}
       end
       alt Попытки исчерпаны
-        pay -> db : 25 UPDATE payout (status=ERROR, reason)
-        pay -> mq : 26 событие PayoutFailed {payoutId, reason}
-        pay -> mq : 27 публикация в DLQ {payoutId}
+        pay -> db : 33 UPDATE payout (status=ERROR, reason)
+        pay -> mq : 34 событие PayoutFailed {payoutId, reason}
+        pay -> mq : 35 публикация в DLQ {payoutId}
       end
     end
   end
 end
 
-pay -> db : 28 UPDATE registry (status=DONE / DONE_WITH_ERRORS)
+pay -> db : 36 UPDATE registry (status=DONE / DONE_WITH_ERRORS)
 
 == Отчёт и повторный запуск ==
-acc -> web : 29 Открыть результаты выплаты
-web -> api : 30 GET /registries/{id}/payouts {status, limit, offset}
-api -> pay : 31 GET /registries/{id}/payouts
-pay -> db : 32 SELECT payouts (status, attempts, error_reason)
-pay --> api : 33 200 {items, total}
-api --> web : 34 Ответ
-web --> acc : 35 Выплачено, ошибки с причиной, DLQ
+acc -> web : 37 Открыть результаты выплаты
+web -> api : 38 GET /registries/{id}/payouts {status, limit, offset}
+api -> pay : 39 GET /registries/{id}/payouts
+pay -> db : 40 SELECT payouts (status, attempts, error_reason)
+pay --> api : 41 200 {items, total}
+api --> web : 42 Ответ
+web --> acc : 43 Выплачено, ошибки с причиной, DLQ
 
-acc -> web : 36 Повторить по проблемным строкам
-web -> api : 37 POST /registries/{id}/payouts/retry {Idempotency-Key}
-api -> pay : 38 POST /retry
+acc -> web : 44 Повторить по проблемным строкам
+web -> api : 45 POST /registries/{id}/payouts/retry {Idempotency-Key}
+api -> pay : 46 POST /retry
 alt Нет выплат в статусе ERROR
-  pay --> api : 39 409 {code=RETRY_NOT_ALLOWED}
+  pay --> api : 47 409 {code=RETRY_NOT_ALLOWED}
 else Есть проблемные строки
-  pay -> db : 40 UPDATE payouts (status=CREATED) только для ERROR
-  pay --> api : 41 202 Accepted
+  pay -> db : 48 UPDATE payouts (status=CREATED) только для ERROR
+  pay --> api : 49 202 Accepted
 end
 
 @enduml
