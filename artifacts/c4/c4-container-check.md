@@ -1,6 +1,6 @@
 # Проверка артефакта: C4 L2 «ВыплатыПро»
 
-- **Артефакт:** `artifacts/c4-container.md`
+- **Артефакт:** `artifacts/c4/c4-container.md`
 - **Инструмент из таблицы требований:** «рендер в PlantUML C4 или Structurizr»
 - **Дата проверки:** 2026-11-17
 
@@ -29,9 +29,9 @@
 
 | Шаг | Что сделано | Результат |
 |---|---|---|
-| 1 | Из Markdown извлечён блок ```plantuml``` в `artifacts/c4-container.puml` | 39 строк |
+| 1 | Из Markdown извлечён блок ```plantuml``` в `artifacts/c4/c4-container.puml` | 39 строк |
 | 2 | Исходник отправлен на рендер: `POST https://kroki.io/plantuml/svg` | **HTTP 200** |
-| 3 | Сохранён результат `artifacts/c4-container.svg` | 35 836 байт |
+| 3 | Сохранён результат `artifacts/c4/c4-container.svg` | 35 836 байт |
 | 4 | Проверено, что это диаграмма, а не текст ошибки | `data-diagram-type="DESCRIPTION"` (тип, в котором PlantUML отдаёт C4-диаграммы), canvas 1528×1341 px |
 | 5 | Проверено наличие всех подписей | **13 из 13** |
 
@@ -108,21 +108,21 @@
   рендер выполнялся через публичный сервис Kroki. Для повторной проверки без сети нужен
   локальный рендерер.
 - **Смысловая верность диаграммы** инструментом не проверяется — это делает Смотрящий и
-  человек (`artifacts/c4-container-review.md`).
+  человек (`artifacts/c4/c4-container-review.md`).
 
 ## 7. Как воспроизвести
 
 ```bash
 # из корня репозитория
-sed -n '/```plantuml/,/```/p' artifacts/c4-container.md | sed '1d;$d' > /tmp/c4.puml
+sed -n '/```plantuml/,/```/p' artifacts/c4/c4-container.md | sed '1d;$d' > /tmp/c4.puml
 curl -s -X POST https://kroki.io/plantuml/svg -H "Content-Type: text/plain" \
-     --data-binary @/tmp/c4.puml -o artifacts/c4-container.svg
+     --data-binary @/tmp/c4.puml -o artifacts/c4/c4-container.svg
 ```
 
 Проверка подписей:
 
 ```bash
-grep -o '<text[^>]*>[^<]*</text>' artifacts/c4-container.svg | sed 's/<[^>]*>//g' | tr '\n' ' ' > /tmp/c4.txt
+grep -o '<text[^>]*>[^<]*</text>' artifacts/c4/c4-container.svg | sed 's/<[^>]*>//g' | tr '\n' ' ' > /tmp/c4.txt
 for l in "Сервис реестров" "Сервис выплат" "Очередь событий"; do grep -q "$l" /tmp/c4.txt && echo "OK $l"; done
 ```
 
@@ -177,7 +177,7 @@ for l in "Сервис реестров" "Сервис выплат" "Очере
 ```python
 import io, re
 
-text = io.open("artifacts/c4-container.puml", encoding="utf-8").read()
+text = io.open("artifacts/c4/c4-container.puml", encoding="utf-8").read()
 rels = re.findall(r"^Rel\((.*)\)\s*$", text, re.M)
 
 
@@ -237,7 +237,7 @@ for m in missing:
 
 ```python
 import io, re
-text = io.open("artifacts/c4-container.md", encoding="utf-8").read()
+text = io.open("artifacts/c4/c4-container.md", encoding="utf-8").read()
 puml = re.search(r"```plantuml\s*\n(.*?)```", text, re.S).group(1)
 hits = re.findall(r"(?:CHK-\d+|AS-\d+|O-\d+|SCRUM-\d+)", puml)
 print("внутренних ID в диаграмме:", len(hits), hits)
