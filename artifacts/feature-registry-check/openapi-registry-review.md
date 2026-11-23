@@ -1,8 +1,8 @@
 # Review: OpenAPI + Sequence Ф1 «Реестр выплат»
 
 - **Ревьюер:** Смотрящий (`skills/smotryashchiy/SKILL.md`, протокол полной сверки)
-- **Артефакты:** `artifacts/f1-registry/openapi-registry.yaml`, `artifacts/f1-registry/openapi-registry.md`,
-  `artifacts/f1-registry/sequence-registry.md`, отчёт `artifacts/f1-registry/openapi-registry-check.md`
+- **Артефакты:** `artifacts/feature-registry-check/openapi-registry.yaml`, `artifacts/feature-registry-check/openapi-registry.md`,
+  `artifacts/feature-registry-check/sequence-registry.md`, отчёт `artifacts/feature-registry-check/openapi-registry-check.md`
 - **Дата:** 2026-11-17
 
 ## Что сверено
@@ -17,8 +17,8 @@
 | `knowledge/features/feature-registry-check.md` | цель, сценарий, критерии | да |
 | `AGENTS.md` | целиком | да |
 | `ai-log.md` | 9 записей, включая E-09 | да |
-| `artifacts/c4/c4-container.md` | имена контейнеров и связи | да |
-| `artifacts/f1-registry/openapi-registry-check.md` | самопроверка и прогоны | да |
+| `artifacts/c4-container.md` | имена контейнеров и связи | да |
+| `artifacts/feature-registry-check/openapi-registry-check.md` | самопроверка и прогоны | да |
 | `docs/author-style.md` | контекст подачи | **нет** — не требования |
 
 ## Общее впечатление
@@ -43,12 +43,12 @@
 
 ### S-01. Проверка «не выплачен ранее» (`CHK-07`) не обеспечена источником данных
 
-- **Где:** `artifacts/f1-registry/openapi-registry.yaml` — `RejectReason.ALREADY_PAID`;
-  `artifacts/f1-registry/sequence-registry.md` — шаги 19–20, проверка строк.
+- **Где:** `artifacts/feature-registry-check/openapi-registry.yaml` — `RejectReason.ALREADY_PAID`;
+  `artifacts/feature-registry-check/sequence-registry.md` — шаги 19–20, проверка строк.
 - **Что не так:** причина `ALREADY_PAID` объявлена, но на диаграмме `Сервис реестров`
   обращается только к `БД реестров` и `Хранилищу файлов`. Данных о прошлых выплатах у него
   нет: выплаты и их ключи хранятся в `БД выплат`, владелец — `Сервис выплат` (см.
-  `artifacts/c4/c4-container.md`). Значит, проверить «исполнитель не выплачен ранее по этому
+  `artifacts/c4-container.md`). Значит, проверить «исполнитель не выплачен ранее по этому
   реестру» нечем.
 - **Почему это ошибка:** `CHK-07` — обязательная проверка из `knowledge/02-business-rules.md`
   §2.1; на неё же опирается `AS-13` (идемпотентность). Без источника данных проверка
@@ -135,6 +135,6 @@
 | S-04 нет ветки «файл недоступен» | закрыто | ветка «Файл недоступен в хранилище»: статус `BLOCKED` и событие `RegistryValidationFailed` |
 
 Перепроверено: Spectral — код возврата 0, ошибок 0; рендер Sequence — HTTP 200, 45 374 байта,
-canvas 2096×2167, содержимое 10 из 10 (`artifacts/f1-registry/openapi-registry-check.md`, §9).
+canvas 2096×2167, содержимое 10 из 10 (`artifacts/feature-registry-check/openapi-registry-check.md`, §9).
 
 **Вердикт повторной проверки: принято.** Замечаний не осталось.

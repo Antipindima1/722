@@ -17,8 +17,8 @@
 | `knowledge/features/feature-registry-check.md` | цель, сценарий, критерии | да |
 | `AGENTS.md` | целиком | да |
 | `ai-log.md` | 9 записей | да |
-| `artifacts/c4/c4-container.md` | имена контейнеров и связей | да |
-| `artifacts/f1-registry/openapi-registry-check.md` | §§1–11, прогоны | да |
+| `artifacts/c4-container.md` | имена контейнеров и связей | да |
+| `artifacts/feature-registry-check/openapi-registry-check.md` | §§1–11, прогоны | да |
 | `docs/author-style.md` | контекст подачи | **нет** — не требования |
 
 ## Общее впечатление
@@ -119,6 +119,6 @@
 
 Перепроверено: Spectral — код возврата 0, ошибок 0; рендер — HTTP 200, 45 537 байт,
 `payouts/exists:batch` и `DLQ` в SVG есть, `outbox` — нет
-(`artifacts/f1-registry/openapi-registry-check.md`, §12).
+(`artifacts/feature-registry-check/openapi-registry-check.md`, §12).
 
 **Вердикт повторной проверки: принято.**
