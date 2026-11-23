@@ -1,101 +1,132 @@
-asyncapi: 2.6.0
+asyncapi: 3.0.0
 id: urn:vyplatypro:registry-events
 defaultContentType: application/json
 info:
   title: ВыплатыПро — события реестра выплат (Ф1)
-  version: 1.0.0
+  version: 2.0.0
   description: |
-    Асинхронные события сервиса реестров: реестр принят, проверен, проверка не удалась.
-    Ключ сообщения — идентификатор реестра, поэтому события одного реестра попадают в одну
-    партицию и обрабатываются по порядку. Недоставленные сообщения уходят в DLQ.
+    События сервиса реестров. Описано приложение «Сервис реестров»: он отправляет события
+    о загрузке, результате и сбое проверки, а также читает собственные события воркером
+    проверки — поэтому для чтения используется receive.
+    Ключ сообщения — registry_id: события одного реестра идут по порядку.
+    Доставка событий — отдельная политика (AS-20): 3 попытки 1/5/15 секунд, затем DLQ.
   contact:
     name: ВыплатыПро
     url: https://vyplatypro.example
+  tags:
+    - name: registry
+      description: События реестра выплат
 servers:
   production:
-    url: broker.vyplatypro.example:9092
+    host: broker.vyplatypro.example:9092
     protocol: kafka
     description: Продуктивный брокер событий
+channels:
+  registryUploaded:
+    address: registry.uploaded
+    description: Реестр принят и поставлен в очередь на проверку.
+    messages:
+      RegistryUploaded:
+        $ref: '#/components/messages/RegistryUploaded'
+  registryChecked:
+    address: registry.checked
+    description: Проверка завершена — реестр проверен или заблокирован.
+    messages:
+      RegistryChecked:
+        $ref: '#/components/messages/RegistryChecked'
+  registryValidationFailed:
+    address: registry.validation-failed
+    description: Проверка не выполнена по технической причине.
+    messages:
+      RegistryValidationFailed:
+        $ref: '#/components/messages/RegistryValidationFailed'
+  registryRevalidationRequested:
+    address: registry.revalidation-requested
+    description: Запрос повторной проверки после устранения технической причины.
+    messages:
+      RegistryRevalidationRequested:
+        $ref: '#/components/messages/RegistryRevalidationRequested'
+  registryDlq:
+    address: registry.events.dlq
+    description: Недоставленные события реестра после исчерпания попыток доставки.
+    messages:
+      DlqEnvelope:
+        $ref: '#/components/messages/DlqEnvelope'
+operations:
+  sendRegistryUploaded:
+    action: send
+    summary: Сервис реестров сообщает о принятом файле
+    channel:
+      $ref: '#/channels/registryUploaded'
+    messages:
+      - $ref: '#/channels/registryUploaded/messages/RegistryUploaded'
+    x-delivery-policy:
+      maxAttempts: 3
+      backoffSeconds: [1, 5, 15]
+      dlqChannel: registryDlq
+      source: AS-20
+  receiveRegistryUploaded:
+    action: receive
+    summary: Воркер проверки читает событие о загрузке
+    channel:
+      $ref: '#/channels/registryUploaded'
+    messages:
+      - $ref: '#/channels/registryUploaded/messages/RegistryUploaded'
     bindings:
       kafka:
-        schemaRegistryUrl: https://schema.vyplatypro.example
-tags:
-  - name: registry
-    description: События реестра выплат
-channels:
-  registry.uploaded:
-    description: |
-      Реестр принят и поставлен в очередь на проверку. Публикует сервис реестров,
-      читает он же — воркер проверки.
-    publish:
-      operationId: publishRegistryUploaded
-      summary: Публикация события о принятом реестре
-      message:
-        $ref: '#/components/messages/RegistryUploaded'
-    subscribe:
-      operationId: consumeRegistryUploaded
-      summary: Чтение события воркером проверки
-      x-retry-policy:
-        maxAttempts: 3
-        backoffSeconds: [1, 5, 15]
-        dlqChannel: registry.events.dlq
-        source: AS-20
-        retryOn: [timeout, 5xx]
-        doNotRetryOn: [invalid-payload, schema-mismatch]
-      bindings:
-        kafka:
-          groupId:
-            type: string
-            enum: [registry-validation-worker]
-      message:
-        $ref: '#/components/messages/RegistryUploaded'
-  registry.checked:
-    description: |
-      Проверка реестра завершена: реестр проверен или заблокирован из-за доли ошибок.
-      Публикует сервис реестров, читают сервис выплат и сервис уведомлений.
-    publish:
-      operationId: publishRegistryChecked
-      summary: Публикация результата проверки
-      message:
-        $ref: '#/components/messages/RegistryChecked'
-  registry.validation-failed:
-    description: |
-      Проверка не выполнена по технической причине: файл недоступен в хранилище или
-      исчерпаны повторные попытки. Публикует сервис реестров, читают сервис уведомлений
-      и поддержка.
-    publish:
-      operationId: publishRegistryValidationFailed
-      summary: Публикация события о неудачной проверке
-      message:
-        $ref: '#/components/messages/RegistryValidationFailed'
-  registry.revalidation-requested:
-    description: |
-      Запрос повторной проверки реестра после устранения технической причины
-      (файл снова доступен в хранилище). Публикует сервис реестров, читает воркер проверки.
-    publish:
-      operationId: publishRegistryRevalidationRequested
-      summary: Повторная проверка реестра
-      message:
-        $ref: '#/components/messages/RegistryRevalidationRequested'
-    subscribe:
-      operationId: consumeRegistryRevalidationRequested
-      summary: Чтение запроса повторной проверки
-      bindings:
-        kafka:
-          groupId:
-            type: string
-            enum: [registry-validation-worker]
-      message:
-        $ref: '#/components/messages/RegistryRevalidationRequested'
-  registry.events.dlq:
-    description: |
-      Недоставленные события после исчерпания повторных попыток. Читается вручную
-      для разбора инцидента.
-    publish:
-      operationId: publishRegistryEventToDlq
-      summary: Публикация в очередь недоставленных сообщений
-      message:
-        $ref: '#/components/messages/DlqEnvelope'
+        groupId:
+          type: string
+          enum: [registry-validation-worker]
+  sendRegistryChecked:
+    action: send
+    summary: Сервис реестров сообщает результат проверки
+    channel:
+      $ref: '#/channels/registryChecked'
+    messages:
+      - $ref: '#/channels/registryChecked/messages/RegistryChecked'
+    x-delivery-policy:
+      maxAttempts: 3
+      backoffSeconds: [1, 5, 15]
+      dlqChannel: registryDlq
+      source: AS-20
+  sendRegistryValidationFailed:
+    action: send
+    summary: Сервис реестров сообщает о техническом сбое проверки
+    channel:
+      $ref: '#/channels/registryValidationFailed'
+    messages:
+      - $ref: '#/channels/registryValidationFailed/messages/RegistryValidationFailed'
+    x-delivery-policy:
+      maxAttempts: 3
+      backoffSeconds: [1, 5, 15]
+      dlqChannel: registryDlq
+      source: AS-20
+  sendRegistryRevalidationRequested:
+    action: send
+    summary: Сервис реестров отправляет реестр на повторную проверку
+    channel:
+      $ref: '#/channels/registryRevalidationRequested'
+    messages:
+      - $ref: '#/channels/registryRevalidationRequested/messages/RegistryRevalidationRequested'
+    x-delivery-policy:
+      maxAttempts: 3
+      backoffSeconds: [1, 5, 15]
+      dlqChannel: registryDlq
+      source: AS-20
+  receiveRegistryRevalidationRequested:
+    action: receive
+    summary: Воркер проверки читает запрос повторной проверки
+    channel:
+      $ref: '#/channels/registryRevalidationRequested'
+    messages:
+      - $ref: '#/channels/registryRevalidationRequested/messages/RegistryRevalidationRequested'
+  sendRegistryEventToDlq:
+    action: send
+    summary: Публикация недоставленного события в DLQ
+    channel:
+      $ref: '#/channels/registryDlq'
+    messages:
+      - $ref: '#/channels/registryDlq/messages/DlqEnvelope'
 components:
   messages:
     RegistryUploaded:
@@ -149,7 +180,7 @@ components:
     DlqEnvelope:
       name: DlqEnvelope
       title: Недоставленное событие
-      summary: Исходное событие плюс причина попадания в DLQ
+      summary: Исходное сообщение вместе с причиной недоставки
       contentType: application/json
       bindings:
         kafka:
@@ -169,11 +200,9 @@ components:
           description: Идентификатор события для защиты от повторной обработки
         eventType:
           type: string
-          description: Тип события
         occurredAt:
           type: string
           format: date-time
-          description: Момент возникновения события
         registryId:
           type: string
           format: uuid
@@ -187,14 +216,11 @@ components:
             status:
               type: string
               enum: [VALIDATING]
-              description: Событие публикуется уже после перехода в VALIDATING
             rowCount:
               type: integer
               minimum: 1
-              description: Количество строк в реестре
             objectKey:
               type: string
-              description: Ключ файла в хранилище
     RegistryCheckedPayload:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -204,7 +230,6 @@ components:
             status:
               type: string
               enum: [CHECKED, BLOCKED]
-              description: Технический сбой публикуется отдельным событием RegistryValidationFailed
             rowCount:
               type: integer
               minimum: 1
@@ -219,7 +244,6 @@ components:
               format: float
               minimum: 0
               maximum: 1
-              description: Доля отклонённых строк
     RegistryValidationFailedPayload:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -229,11 +253,9 @@ components:
             reason:
               type: string
               enum: [FILE_UNAVAILABLE, VALIDATION_TIMEOUT, INTERNAL_ERROR]
-              description: Причина, по которой проверка не выполнена
             attempts:
               type: integer
               minimum: 1
-              description: Сколько попыток выполнено
     RegistryRevalidationPayload:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
@@ -243,20 +265,19 @@ components:
             reason:
               type: string
               enum: [FILE_AVAILABLE_AGAIN, MANUAL_REQUEST]
-              description: Почему реестр отправлен на повторную проверку
     DlqEnvelopePayload:
       type: object
       required: [originalEvent, reason, failedAt]
       properties:
         originalEvent:
-          description: Исходное сообщение без изменений
+          description: Исходное сообщение
           oneOf:
             - $ref: '#/components/schemas/RegistryUploadedPayload'
             - $ref: '#/components/schemas/RegistryCheckedPayload'
             - $ref: '#/components/schemas/RegistryValidationFailedPayload'
+            - $ref: '#/components/schemas/RegistryRevalidationPayload'
         reason:
           type: string
-          description: Причина недоставки
         failedAt:
           type: string
           format: date-time

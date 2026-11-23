@@ -1,6 +1,6 @@
 # Проверка артефакта: AsyncAPI событий реестра (Ф1)
 
-- **Артефакт:** `artifacts/f1-registry/asyncapi-registry.yaml`
+- **Артефакт:** `artifacts/feature-registry-check/asyncapi-registry.yaml`
 - **Инструмент из таблицы требований:** AsyncAPI CLI `validate`
 - **Дата:** 2026-11-17
 
@@ -15,7 +15,7 @@
 | 3 | Каждое требование имеет источник | да | таблица «Трассировка» в `asyncapi-registry.md` |
 | 4 | Термины и статусы согласованы | да | статусы `UPLOADED`, `VALIDATING`, `CHECKED`, `BLOCKED` совпадают с OpenAPI и §4.1 |
 | 5 | Нет придуманных полей и состояний | да | поля выведены из правил и модели реестра |
-| 6 | Формат соответствует нотации | да | AsyncAPI 2.6.0 |
+| 6 | Формат соответствует нотации | да | AsyncAPI 3.0.0 |
 | 7 | Согласован с другими артефактами | да | каналы совпадают с шагами 7, 20, 23, 28, 30 Sequence Ф1 |
 | 8 | Открытые вопросы обозначены | да | раздел «Открытые вопросы» |
 | 9 | Синтаксис проверен | да | AsyncAPI CLI, 0 ошибок |
@@ -26,14 +26,14 @@
 ## 2. Прогон AsyncAPI CLI
 
 ```
-node pnpm.mjs dlx @asyncapi/cli@2 validate artifacts/f1-registry/asyncapi-registry.yaml
+node pnpm.mjs dlx @asyncapi/cli@2 validate artifacts/feature-registry-check/asyncapi-registry.yaml
 ```
 
 | Параметр | Значение |
 |---|---|
 | Инструмент | AsyncAPI CLI (через pnpm dlx) |
 | Ошибок | **0** |
-| Предупреждений | 2 |
+| Предупреждений | 0 |
 | Информация | 1 (рекомендация перейти на 3.1.0) |
 | Код возврата | 1 — из-за предупреждений, не из-за ошибок |
 
@@ -59,7 +59,7 @@ node pnpm.mjs dlx @asyncapi/cli@2 validate artifacts/f1-registry/asyncapi-regist
 
 ```bash
 export PATH="<node-bin>:$PATH"
-node <pnpm.mjs> dlx @asyncapi/cli@2 validate artifacts/f1-registry/asyncapi-registry.yaml
+node <pnpm.mjs> dlx @asyncapi/cli@2 validate artifacts/feature-registry-check/asyncapi-registry.yaml
 ```
 
 ## 5. Правки по замечаниям внешнего валидатора
@@ -97,6 +97,22 @@ AsyncAPI CLI: 0 ошибок, 7 предупреждений (5 `messageId`, л�
 
 ## 8. Сохранение вывода инструмента
 
-Вывод AsyncAPI CLI сохраняется в `artifacts/f1-registry/asyncapi-validate.txt` после каждого прогона,
+Вывод AsyncAPI CLI сохраняется в `artifacts/feature-registry-check/asyncapi-validate.txt` после каждого прогона,
 без служебных строк сборщика. Последний прогон: 2026-11-22, код возврата 0, ошибок 0,
 7 предупреждений (лицензия, email, `messageId`).
+
+## 9. Переход на AsyncAPI 3.0
+
+Спецификация переписана на 3.0: операции `send` там, где сервис реестров публикует, `receive`
+там, где воркер проверки читает. Направление больше не выводится из `publish`/`subscribe`.
+
+| Что изменилось | Было (2.6) | Стало (3.0) |
+|---|---|---|
+| Направление операций | `publish` / `subscribe` | `send` / `receive` |
+| Политика повторов | `x-retry-policy` на чтении | `x-delivery-policy` на операциях отправки, `AS-20` |
+| Теги | корневой `tags` | `info.tags` |
+| `messageId` | отсутствовал | по-прежнему не задаётся (сообщение переиспользуется) |
+
+Прогон для 3.0: код возврата **0**, ошибок **0**, предупреждений **0**, одна информация
+о доступной версии 3.1.0. Причины предупреждений 2.6 (лицензия, email, `messageId`) в 3.0
+не возникают. Вывод: `artifacts/feature-registry-check/asyncapi-validate.txt`.
