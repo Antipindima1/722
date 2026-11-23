@@ -1,8 +1,8 @@
 -- ВыплатыПро: модель данных контура реестра и выплат (Ф1 + задел под Ф2)
 -- PostgreSQL 15+
--- Проверка: исполнение на PGlite (WASM PostgreSQL), см. artifacts/f1-registry/postgres-validate.txt
+-- Проверка: исполнение на PGlite (WASM PostgreSQL), см. artifacts/feature-registry-check/postgres-validate.txt
 -- Скрипт НЕ идемпотентный: рассчитан на пустую базу. Для повторного применения сначала
--- выполните artifacts/f1-registry/schema-reset.sql (удаляет таблицы и типы контура).
+-- выполните artifacts/feature-registry-check/schema-reset.sql (удаляет таблицы и типы контура).
 
 CREATE TYPE registry_status AS ENUM (
     'UPLOADED',          -- Загружен
@@ -38,7 +38,8 @@ CREATE TYPE payout_status AS ENUM (
     'CREATED',      -- Создана
     'SENT_TO_SBP',  -- Отправлена в СБП
     'EXECUTED',     -- Исполнена
-    'DECLINED'      -- Отклонена
+    'DECLINED',     -- Отклонена
+    'ERROR'         -- Ошибка после исчерпания попыток
 );
 
 CREATE TYPE receipt_status AS ENUM ('PENDING', 'RECEIVED', 'MISSING', 'CANCELLED');
@@ -183,7 +184,7 @@ COMMENT ON TABLE registries IS 'Реестр выплат: пакет строк
 COMMENT ON COLUMN registries.idempotency_key IS 'Ключ идемпотентности загрузки, AS-13';
 COMMENT ON COLUMN registries.row_count IS 'Не более 5000 строк в реестре, AS-02';
 COMMENT ON COLUMN registries.error_share IS 'Доля отклонённых строк; выше порога реестр блокируется, AS-14';
-COMMENT ON COLUMN payout_rows.reject_reason IS 'Причина отклонения строки, CHK-03…CHK-07';
+COMMENT ON COLUMN payout_rows.reject_reason IS 'Причина отклонения строки, CHK-03…CHK-06';
 COMMENT ON COLUMN payouts.row_id IS 'Одна выплата на строку реестра: защита от повторов, CHK-07, AS-13';
 COMMENT ON COLUMN payouts.attempts IS 'Не более 3 попыток отправки в СБП, AS-17';
 COMMENT ON TABLE receipts IS 'Чек ФНС обязателен по каждой выплате, O-05, AS-07';
