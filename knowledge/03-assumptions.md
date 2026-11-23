@@ -170,8 +170,19 @@ tags:
 - **Причина:** `AS-17` задаёт ретраи выплат в **минутах**, потому что там деньги и внешний СБП.
   Ожидание 15 минут между попытками доставки события между сервисами несоразмерно: событие либо
   доставлено, либо уходит в разбор. Смешивать два режима в одном допущении нельзя.
-- **Где используется:** `artifacts/f1-registry/asyncapi-registry.yaml`, `artifacts/f1-registry/sequence-registry.md`,
+- **Где используется:** `artifacts/feature-registry-check/asyncapi-registry.yaml`, `artifacts/feature-registry-check/sequence-registry.md`,
   `artifacts/c4/c4-container.md`.
+
+### AS-21. События контура выплат
+
+- **Значение:** контур выплат публикует три события:
+  - `PayoutSent` — выплата отправлена в СБП: `payoutId`, `registryId`, `rowId`, `amount`, `sentAt`;
+  - `PayoutFailed` — выплата не выполнена после исчерпания попыток: `payoutId`, `reason`, `attempts`, `failedAt`;
+  - `PayoutRetryScheduled` — назначена повторная попытка: `payoutId`, `attempt`, `nextAttemptAt`.
+  Ключ сообщения — `payoutId`: события одной выплаты идут по порядку.
+- **Причина:** в постановке задачи события выплат не описаны, но без них не работают уведомления,
+  разбор ошибок и DLQ (`AS-17`). Имена и состав зафиксированы явно, чтобы не выдавать их за требование.
+- **Где используется:** `artifacts/feature-sbp-payout/asyncapi-payouts.yaml`, Sequence Ф2.
 
 ## Открытые вопросы
 
