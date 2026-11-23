@@ -211,3 +211,20 @@ spectral lint artifacts/openapi-registry.yaml --ruleset .spectral.yaml \
 Исправлено: в описание загрузки добавлены все три лимита и код ошибки.
 
 Повторный прогон Spectral: код возврата 0, ошибок 0 (`artifacts/spectral-registry.json`).
+
+## 17. Ревизия проверки «уже выплачено» (CHK-07)
+
+Предыдущее исправление (S-01) было неверным: добавили операцию `POST /payouts/exists:batch`,
+чтобы «обеспечить проверку данными». Но на этапе загрузки реестра строки только что созданы —
+выплат по ним быть не может, и проверка всегда возвращает «нет». Это мёртвый шаг, а не защита.
+
+| Что сделано | Где |
+|---|---|
+| Проверка `CHK-07` перенесена в раздел выплат: выполняется при создании выплаты по ключу `registry_id + row_id` | `knowledge/02-business-rules.md` §2.2 |
+| Из спецификации реестра удалена операция `POST /payouts/exists:batch` | `openapi-registry.yaml` |
+| Удалены тег `payouts`, схема `serviceToken` и причина `ALREADY_PAID` | там же |
+| Из DDL и модели удалена причина `ALREADY_PAID` | `schema-registry.sql`, `schema-online.sql`, `erd-registry.md` |
+| Из Sequence убраны шаги обращения к сервису выплат | `sequence-registry.md` |
+
+Проверка после правок: Spectral — код 0, ошибок 0 (`artifacts/spectral-registry.json`);
+рендер Sequence — HTTP 200, `payouts/exists` и `ALREADY_PAID` в диаграмме отсутствуют.

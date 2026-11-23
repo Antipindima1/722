@@ -63,7 +63,7 @@ CREATE TABLE payout_rows (
     purpose       text           NOT NULL CHECK (length(btrim(purpose)) > 0),
     status        text           NOT NULL DEFAULT 'NEW'
                                  CHECK (status IN ('NEW','VALIDATED','REJECTED','PAYING','PAID','FAILED')),
-    reject_reason text           CHECK (reject_reason IN ('INVALID_INN','DUPLICATE_INN','AMOUNT_OUT_OF_RANGE','INVALID_PHONE','ALREADY_PAID','MISSING_REQUIRED_FIELD')),
+    reject_reason text           CHECK (reject_reason IN ('INVALID_INN','DUPLICATE_INN','AMOUNT_OUT_OF_RANGE','INVALID_PHONE','MISSING_REQUIRED_FIELD')),
     created_at    timestamptz    NOT NULL DEFAULT now(),
     CHECK ((status = 'REJECTED' AND reject_reason IS NOT NULL)
         OR (status <> 'REJECTED' AND reject_reason IS NULL))
