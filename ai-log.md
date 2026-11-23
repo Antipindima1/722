@@ -12,16 +12,16 @@
 | ID | Ошибка агента | Где проявилась | Правка навыка |
 |---|---|---|---|
 | E-01 | Экранирование испортило текст отчёта | `artifacts/*-check.md` | `skills/smotryashchiy` |
-| E-02 | Внутренние ID в подписях контейнеров | `artifacts/c4-container.md` | `skills/c4-container-diagram` |
-| E-03 | Связь на диаграмме без протокола | `artifacts/c4-container.md` | `skills/c4-container-diagram` |
-| E-04 | Технологии контейнеров выданы за требование | `artifacts/c4-container.md` | `skills/c4-container-diagram` |
-| E-05 | Замечания прошлых работ перенесены в текущее ревью | `artifacts/c4-container-review.md` | `skills/smotryashchiy` |
-| E-06 | `key` объявлен в binding операции | `artifacts/asyncapi-registry.yaml` | `skills/asyncapi-design` |
-| E-07 | Дубль `messageId` при переиспользовании сообщения | `artifacts/asyncapi-registry.yaml` | `skills/asyncapi-design` |
-| E-08 | Не проверены контрольная сумма ИНН и лимит суммы реестра | `artifacts/schema-registry.sql` | `skills/erd-data-model` |
-| E-09 | Проверка «уже выплачено» описана без источника данных | `artifacts/openapi-registry.yaml` | `skills/openapi-design`, `skills/sequence-diagram` |
-| E-10 | Двоеточие в незакавыченном YAML-значении ломает спецификацию | `artifacts/openapi-sequence-regeneration/openapi.agent-draft.yaml` | `skills/openapi-design` |
-| E-11 | Проверка «уже выплачено» на этапе загрузки не может дать оба результата | `artifacts/openapi-registry.yaml`, `sequence-registry.md` | `skills/openapi-design`, `skills/sequence-diagram`, `skills/erd-data-model` |
+| E-02 | Внутренние ID в подписях контейнеров | `artifacts/c4/c4-container.md` | `skills/c4-container-diagram` |
+| E-03 | Связь на диаграмме без протокола | `artifacts/c4/c4-container.md` | `skills/c4-container-diagram` |
+| E-04 | Технологии контейнеров выданы за требование | `artifacts/c4/c4-container.md` | `skills/c4-container-diagram` |
+| E-05 | Замечания прошлых работ перенесены в текущее ревью | `artifacts/c4/c4-container-review.md` | `skills/smotryashchiy` |
+| E-06 | `key` объявлен в binding операции | `artifacts/f1-registry/asyncapi-registry.yaml` | `skills/asyncapi-design` |
+| E-07 | Дубль `messageId` при переиспользовании сообщения | `artifacts/f1-registry/asyncapi-registry.yaml` | `skills/asyncapi-design` |
+| E-08 | Не проверены контрольная сумма ИНН и лимит суммы реестра | `artifacts/f1-registry/schema-registry.sql` | `skills/erd-data-model` |
+| E-09 | Проверка «уже выплачено» описана без источника данных | `artifacts/f1-registry/openapi-registry.yaml` | `skills/openapi-design`, `skills/sequence-diagram` |
+| E-10 | Двоеточие в незакавыченном YAML-значении ломает спецификацию | `artifacts/f1-registry/openapi-sequence-regeneration/openapi.agent-draft.yaml` | `skills/openapi-design` |
+| E-11 | Проверка «уже выплачено» на этапе загрузки не может дать оба результата | `artifacts/f1-registry/openapi-registry.yaml`, `sequence-registry.md` | `skills/openapi-design`, `skills/sequence-diagram`, `skills/erd-data-model` |
 
 Итого: **11 ошибок**, все 11 привели к правке навыков.
 DoD требует ≥5 ошибок и ≥2 правки `SKILL.md`.
@@ -137,7 +137,7 @@ DoD требует ≥5 ошибок и ≥2 правки `SKILL.md`.
 - **Перегенерация 2026-11-22.** После правки навыка DDL сгенерирован заново по критериям
   приёмки, без копирования прошлой версии. Результат: контрольная сумма ИНН, лимит суммы реестра
   и сохранение отчёта присутствуют; прогон — 8 таблиц, 7 внешних ключей, 11 из 11 проверок
-  ограничений (`artifacts/erd-regeneration/check.md`). Ошибка не повторилась.
+  ограничений (`artifacts/f1-registry/erd-regeneration/check.md`). Ошибка не повторилась.
 
 ## E-09. Проверка «уже выплачено» описана без источника данных
 
@@ -166,7 +166,7 @@ DoD требует ≥5 ошибок и ≥2 правки `SKILL.md`.
 - **Какое правило нарушено.** Значения со символами, ломающими разметку (`: `), заключаются
   в кавычки; спецификация обязана читаться парсером до любых проверок.
 - **Как проверено, что ошибка ушла.** Значение взято в кавычки, повторный прогон Spectral:
-  код возврата 0, ошибок 0 (`artifacts/openapi-sequence-regeneration/spectral.json`).
+  код возврата 0, ошибок 0 (`artifacts/f1-registry/openapi-sequence-regeneration/spectral.json`).
   Первый прогон с ошибкой сохранён: `spectral-run1-error.json`.
 - **Что изменено в навыке.** `skills/openapi-design/SKILL.md` — правило E-10: значения
   с `: ` пишутся в кавычках.
@@ -210,7 +210,7 @@ DoD требует ≥5 ошибок и ≥2 правки `SKILL.md`.
 | R-07 | Один смысл статуса — одно имя во всех артефактах: KB, OpenAPI, AsyncAPI, Sequence, DDL | этот раздел, `02-business-rules.md` §4 |
 | R-08 | Технический сбой ≠ блокировка по данным: разные статусы и действия | `AS-19` |
 | R-09 | AsyncAPI: `key` — в message-binding; `messageId` не дублировать; два валидатора | `skills/asyncapi-design`, E-06, E-07 |
-| R-10 | Термины как в проекте: `API Gateway`, а не «API-шлюз» | `artifacts/c4-container.md` |
+| R-10 | Термины как в проекте: `API Gateway`, а не «API-шлюз» | `artifacts/c4/c4-container.md` |
 | R-11 | Любая диаграмма имеет рендер (SVG/PNG), а не только исходник | `artifacts/*.svg` |
 | R-12 | Перед вердиктом читать все задачи, всю `knowledge` и смежные артефакты | `skills/smotryashchiy` |
 | R-13 | Перед сдачей сверять `knowledge` и артефакты по статусам, лимитам и именам | этот раздел, E-08, E-09 |
