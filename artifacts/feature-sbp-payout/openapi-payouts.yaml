@@ -73,6 +73,10 @@ paths:
           $ref: '#/components/responses/ServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '400':
+          $ref: '#/components/responses/BadRequest'
   /payouts/{payoutId}:
     get:
       tags: [payouts]
@@ -101,6 +105,8 @@ paths:
           $ref: '#/components/responses/ServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /registries/{registryId}/payouts/retry:
     post:
       tags: [payouts]
@@ -129,6 +135,8 @@ paths:
           $ref: '#/components/responses/ServerError'
         '503':
           $ref: '#/components/responses/ServiceUnavailable'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 components:
   securitySchemes:
     bearerAuth:
@@ -181,6 +189,12 @@ components:
             $ref: '#/components/schemas/Error'
     NotFound:
       description: Реестр или выплата не найдены
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadRequest:
+      description: Неверные параметры запроса
       content:
         application/json:
           schema:
@@ -287,6 +301,7 @@ components:
             - REGISTRY_NOT_CHECKED
             - INSUFFICIENT_FUNDS
             - DAILY_LIMIT_EXCEEDED
+            - INVALID_QUERY_PARAM
             - IDEMPOTENCY_KEY_REUSED
             - RETRY_NOT_ALLOWED
             - PAYOUT_NOT_FOUND
