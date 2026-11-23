@@ -177,9 +177,9 @@ tags:
 
 - **Значение:** контур выплат публикует три события:
   - `PayoutSent` — выплата отправлена в СБП: `payoutId`, `registryId`, `rowId`, `amount`, `sentAt`;
-  - `PayoutFailed` — выплата не выполнена после исчерпания попыток: `payoutId`, `reason`, `attempts`, `failedAt`;
+  - `PayoutFailed` — выплата не выполнена: после исчерпания попыток или по бизнес-причине (утрата статуса самозанятого, отказ СБП): `payoutId`, `reason`, `failedAt`;
   - `PayoutRetryScheduled` — назначена повторная попытка: `payoutId`, `attempt`, `nextAttemptAt`.
-  Ключ сообщения — `payoutId`: события одной выплаты идут по порядку.
+  Причина (`reason`) — `SBP_REJECTED`, `SBP_TIMEOUT`, `CONTRACTOR_STATUS_LOST`, `FNS_UNAVAILABLE`, `INTERNAL_ERROR`. Ключ сообщения — `payoutId`: события одной выплаты идут по порядку.
 - **Причина:** в постановке задачи события выплат не описаны, но без них не работают уведомления,
   разбор ошибок и DLQ (`AS-17`). Имена и состав зафиксированы явно, чтобы не выдавать их за требование.
 - **Где используется:** `artifacts/feature-sbp-payout/asyncapi-payouts.yaml`, Sequence Ф2.

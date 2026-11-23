@@ -33,7 +33,9 @@ channels:
       message:
         $ref: '#/components/messages/PayoutSent'
   payout.failed:
-    description: Выплата не выполнена после исчерпания попыток. Публикует сервис выплат, читают уведомления и поддержка.
+    description: |
+      Выплата не выполнена — после исчерпания попыток или по бизнес-причине (утрата статуса,
+      отказ СБП). Публикует сервис выплат, читают уведомления и поддержка.
     publish:
       operationId: publishPayoutFailed
       summary: Публикация неуспешной выплаты
@@ -157,7 +159,7 @@ components:
               maximum: 3
             reason:
               type: string
-              enum: [SBP_REJECTED, SBP_TIMEOUT, CONTRACTOR_STATUS_LOST, INTERNAL_ERROR]
+              enum: [SBP_REJECTED, SBP_TIMEOUT, CONTRACTOR_STATUS_LOST, FNS_UNAVAILABLE, INTERNAL_ERROR]
     PayoutRetryPayload:
       allOf:
         - $ref: '#/components/schemas/EventEnvelope'
