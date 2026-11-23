@@ -53,10 +53,10 @@
 
 ## Проверка после правки
 
-- Spectral: код возврата 0, ошибок 0 (`artifacts/f1-registry/spectral-registry.json`).
-- AsyncAPI CLI: изменений нет, вывод актуален (`artifacts/f1-registry/asyncapi-validate.txt`).
+- Spectral: код возврата 0, ошибок 0 (`artifacts/feature-registry-check/spectral-registry.json`).
+- AsyncAPI CLI: изменений нет, вывод актуален (`artifacts/feature-registry-check/asyncapi-validate.txt`).
 - DDL: перегенерированный вариант проверен, 11 из 11 ограничений
-  (`artifacts/f1-registry/erd-regeneration/check.md`).
+  (`artifacts/erd-regeneration/check.md`).
 
 ## Вывод
 

@@ -4,10 +4,10 @@
 
 | Слабая зона | Артефакт | Чем проверить | Инструмент | Результат | Доказательство |
 |---|---|---|---|---|---|
-| System design | C4, уровень 2 (контейнеры) | рендер в PlantUML C4, аргументация решений | Kroki `POST /plantuml/svg` | HTTP 200, диаграмма отрисована, 9 контейнеров, 3 внешние системы, 15 из 15 связей с протоколами | `artifacts/c4/c4-container.svg`, `artifacts/c4/c4-container-check.md` |
-| Интеграции, синхронные | OpenAPI + Sequence с ошибками и ретраями | Spectral | Spectral 6.17.1, ruleset `spectral:oas` | код возврата 0, ошибок 0, предупреждений 0 | `artifacts/f1-registry/spectral-registry.json`, `artifacts/f1-registry/openapi-registry-check.md` |
-| Интеграции, асинхронные | AsyncAPI | AsyncAPI CLI validate | `@asyncapi/cli` validate | ошибок 0; 7 предупреждений (лицензия, email, `messageId`), разобраны в отчёте | `artifacts/f1-registry/asyncapi-validate.txt`, `artifacts/f1-registry/asyncapi-registry-check.md` |
-| Данные | ER + DDL PostgreSQL | **DDL выполняется в DBeaver без ошибок** | DBeaver + PostgreSQL (Neon) | ✅ скрипт выполнен без ошибок; схема проверена самопроверкой schema-verify.sql | `artifacts/dbeaver-check.md, `artifacts/f1-registry/schema-verify.sql |
+| System design | C4, уровень 2 (контейнеры) | рендер в PlantUML C4, аргументация решений | Kroki `POST /plantuml/svg` | HTTP 200, диаграмма отрисована, 9 контейнеров, 3 внешние системы, 15 из 15 связей с протоколами | `artifacts/c4-container.svg`, `artifacts/c4-container-check.md` |
+| Интеграции, синхронные | OpenAPI + Sequence с ошибками и ретраями | Spectral | Spectral 6.17.1, ruleset `spectral:oas` | код возврата 0, ошибок 0, предупреждений 0 | `artifacts/feature-registry-check/spectral-registry.json`, `artifacts/feature-registry-check/openapi-registry-check.md` |
+| Интеграции, асинхронные | AsyncAPI | AsyncAPI CLI validate | `@asyncapi/cli` validate | ошибок 0; 7 предупреждений (лицензия, email, `messageId`), разобраны в отчёте | `artifacts/feature-registry-check/asyncapi-validate.txt`, `artifacts/feature-registry-check/asyncapi-registry-check.md` |
+| Данные | ER + DDL PostgreSQL | **DDL выполняется в DBeaver без ошибок** | DBeaver + PostgreSQL (Neon) | ✅ скрипт выполнен без ошибок; схема проверена самопроверкой schema-verify.sql | `artifacts/dbeaver-check.md, `artifacts/schema-verify.sql |
 
 ## Что уже проверено по данным
 
@@ -21,8 +21,8 @@
 ## Как закрыть пункт «DBeaver»
 
 1. В DBeaver открыть соединение с PostgreSQL (Neon из задания).
-2. Выполнить `artifacts/f1-registry/schema-reset.sql` — снять прошлую схему, иначе будет ошибка `type already exists`.
-3. Выполнить `artifacts/f1-registry/schema-registry.sql` целиком **через `Alt+X` (Execute SQL Script)**.
+2. Выполнить `artifacts/schema-reset.sql` — снять прошлую схему, иначе будет ошибка `type already exists`.
+3. Выполнить `artifacts/schema-registry.sql` целиком **через `Alt+X` (Execute SQL Script)**.
 
 Важно: `Ctrl+Enter` в DBeaver выполняет только инструкцию под курсором. Если запускать так,
 `COMMENT ON TABLE receipts` упадёт с `relation receipts does not exist` — таблицы ещё
@@ -42,7 +42,7 @@ where table_schema = 'public' order by 1;
 
 ## Самопроверка схемы
 
-Файл `artifacts/f1-registry/schema-verify.sql запускается в DBeaver через Alt+X и проверяет:
+Файл `artifacts/schema-verify.sql запускается в DBeaver через Alt+X и проверяет:
 
 - структуру: 8 таблиц, 5 enum-типов, 7 внешних ключей, 20 индексов;
 - функцию контрольной суммы ИНН (валидный и невалидный);
